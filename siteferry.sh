@@ -3,7 +3,7 @@
 # DDEV Backup Manager - Pipeline Orchestrator
 # Builds and executes dynamic pipelines based on user configuration
 
-# set -euo pipefail
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${CONFIG_FILE:-config/last-checked.config}"
