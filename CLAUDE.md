@@ -420,3 +420,5 @@ User specifically requested **not to run shellcheck verification on actions file
 - Remember the Unix Philosophy. This is the Unix philosophy: Write programs that do one thing and do it well. Write programs to work together. Write programs to handle text streams, because that is a universal interface.
 - IMPORTANT! THIS IS A BRAND NEW PROJECT. BACKWARDS COMPATIBILITY IS **NEVER** AN ISSUE. DON'T BOTHER KEEPING OLD FUNCTIONS OR FORMATS.
 - IMPORTANT! Do not attempt to write tests for networking (SSH, scp) functions / scripts.
+- When testing siteferry.sh, always pass --no-select to avoid the dialog window
+- Make git commit messages more succinct.
