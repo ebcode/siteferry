@@ -26,23 +26,37 @@ main() {
     
     msg_info "Fetching files backup..."
     
-    # Simulate files download
-    local backup_file="/tmp/files_backup.tar.gz"
-    local backup_size="2.1GB"
+    # Load backup configuration
+    if ! load_backup_config; then
+        set_status "$ACTION" "error" "Failed to load backup configuration"
+        pass_state
+        return 1
+    fi
     
-    # Simulate with 85% success rate
-    if (( RANDOM % 100 < 85 )); then
-        msg_debug "Downloading files archive..."
-        sleep 1.5
-        
-        # Create dummy backup file
-        echo "Files backup archive created at $(date)" > "$backup_file"
-        
-        set_status "$ACTION" "success" "Downloaded ${backup_size} files backup to ${backup_file}"
-        msg_success "Files backup downloaded successfully"
+    # Set local backup file destination
+    local backup_file="./tmp/${REMOTE_FILES_BACKUP}"
+    
+    # Build scp command with configuration values
+    local scp_cmd="scp -P ${REMOTE_PORT} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/${REMOTE_FILES_BACKUP} ${backup_file}"
+    
+    msg_info "Connecting to ${REMOTE_HOST}:${REMOTE_PORT} as ${REMOTE_USER}"
+    msg_debug "Downloading ${REMOTE_PATH}/${REMOTE_FILES_BACKUP}"
+    
+    # Execute scp command
+    if $scp_cmd; then
+        # Get file size for status message
+        local file_size
+        if [[ -f "$backup_file" ]]; then
+            file_size=$(du -h "$backup_file" | cut -f1)
+            set_status "$ACTION" "success" "Downloaded ${file_size} files backup to ${backup_file}"
+            msg_success "Files backup downloaded successfully (${file_size})"
+        else
+            set_status "$ACTION" "error" "Download completed but backup file not found"
+            msg_error "Download completed but backup file not found at $backup_file"
+        fi
     else
-        set_status "$ACTION" "error" "Transfer interrupted - network connection lost"
-        msg_error "Failed to download files backup"
+        set_status "$ACTION" "error" "Failed to download files backup (scp exit code: $?)"
+        msg_error "Failed to download files backup from ${REMOTE_HOST}"
     fi
     
     # Pass state to next stage

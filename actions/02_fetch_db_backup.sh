@@ -34,13 +34,13 @@ main() {
     fi
     
     # Set local backup file destination
-    local backup_file="/tmp/database_backup.sql"
+    local backup_file="./tmp/${REMOTE_DB_BACKUP}"
     
     # Build scp command with configuration values
-    local scp_cmd="scp -P ${REMOTE_PORT} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/${REMOTE_FILE} ${backup_file}"
+    local scp_cmd="scp -P ${REMOTE_PORT} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/${REMOTE_DB_BACKUP} ${backup_file}"
     
     msg_info "Connecting to ${REMOTE_HOST}:${REMOTE_PORT} as ${REMOTE_USER}"
-    msg_debug "Downloading ${REMOTE_PATH}/${REMOTE_FILE}"
+    msg_debug "Downloading ${REMOTE_PATH}/${REMOTE_DB_BACKUP}"
     
     # Execute scp command
     if $scp_cmd; then

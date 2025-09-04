@@ -35,8 +35,14 @@ main() {
     
     msg_info "Importing database..."
     
-    # Simulate database import
-    local backup_file="/tmp/database_backup.sql"
+    # Load backup configuration to get the actual backup filename
+    if ! load_backup_config; then
+        set_status "$ACTION" "error" "Failed to load backup configuration"
+        pass_state
+        return 0
+    fi
+    
+    local backup_file="./tmp/${REMOTE_DB_BACKUP}"
     
     # Check if backup file exists
     if [[ ! -f "$backup_file" ]]; then
