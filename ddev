@@ -1,0 +1,11 @@
+#!/bin/bash
+# Mock DDEV for testing
+if [[ "$1" == "version" ]]; then
+    if [[ "$2" == "--json" ]]; then
+        echo '{"version":"v1.23.5"}'
+    else
+        echo "ddev version v1.23.5"
+    fi
+else
+    echo "Mock DDEV command"
+fi

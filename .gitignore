@@ -1,0 +1,5 @@
+
+config/*
+PLAN.md
+shellcheck.wiki
+tmp/*
