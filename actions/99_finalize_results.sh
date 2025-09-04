@@ -31,8 +31,16 @@ main() {
     # Get state from previous pipeline stage
     local input
     if input=$(cat); then
+        msg_debug "Pipeline input received:"
+        msg_debug "$input"
         eval "$input"
     fi
+    
+    # Debug: show what status variables are available
+    msg_debug "Available status variables:"
+    local status_vars
+    status_vars=$(env | grep -E "_(status|message)=" || echo "None found")
+    msg_debug "$status_vars"
     
     msg_user_info ""
     msg_user_info "=== DDEV Backup Manager - Pipeline Results ==="
@@ -40,45 +48,62 @@ main() {
     
     local numbered_actions
     mapfile -t numbered_actions < <(get_all_actions)
+    msg_debug "Numbered actions found: ${numbered_actions[*]}"
+    
     local actions=()
     # Convert numbered actions to base names for status lookup
     for action in "${numbered_actions[@]}"; do
         actions+=("$(get_action_base_name "$action")")
     done
+    msg_debug "Base action names: ${actions[*]}"
+    
     local success_count=0
     local error_count=0
     local skipped_count=0
     
     for action in "${actions[@]}"; do
+        # Debug output
+        msg_debug "Processing action: $action"
+        
         # Get status and message directly from environment variables
         local status_var="${action}_status"
         local message_var="${action}_message"
+        msg_debug "Looking for variables: $status_var, $message_var"
+        
         local status="${!status_var:-skipped}"
+        msg_debug "Status retrieved: $status"
+        
         local message="${!message_var:-No details}"
+        msg_debug "Message retrieved: $message"
         
         # Format action name for display
+        msg_debug "Formatting display name for: $action"
         local display_name
         display_name=$(echo "$action" | sed 's/_/ /g' | sed 's/\b\w/\U&/g')
+        msg_debug "Display name: $display_name"
         
         case "$status" in
             "success")
                 msg_user_success "SUCCESS: $display_name"
                 [[ -n "$message" ]] && msg_user_info "   $message"
-                ((success_count++))
+                success_count=$((success_count + 1))
                 ;;
             "error")
                 msg_user_error "ERROR: $display_name"
                 [[ -n "$message" ]] && msg_user_info "   $message"
-                ((error_count++))
+                error_count=$((error_count + 1))
                 ;;
             "skipped")
                 msg_user_info "SKIPPED: $display_name"
                 [[ -n "$message" ]] && msg_user_info "   $message"
-                ((skipped_count++))
+                skipped_count=$((skipped_count + 1))
                 ;;
         esac
         msg_user_info ""
+        msg_debug "Completed processing action: $action, continuing loop..."
     done
+    
+    msg_debug "Loop completed, proceeding to summary"
     
     # Summary
     msg_user_info "=== Summary ==="
