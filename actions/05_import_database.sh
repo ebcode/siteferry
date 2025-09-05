@@ -35,14 +35,16 @@ main() {
     
     msg_info "Importing database..."
     
-    # Load backup configuration to get the actual backup filename
-    if ! load_backup_config; then
-        set_status "$ACTION" "error" "Failed to load backup configuration"
+    # Load site configuration to get the actual backup filename
+    if ! load_site_config; then
+        set_status "$ACTION" "error" "Failed to load site configuration"
         pass_state
         return 0
     fi
     
-    local backup_file="./tmp/${REMOTE_DB_BACKUP}"
+    # Use system temp path
+    local backup_file
+    backup_file="/tmp/${REMOTE_DB_BACKUP}"
     
     # Check if backup file exists
     if [[ ! -f "$backup_file" ]]; then

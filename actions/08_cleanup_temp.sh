@@ -30,11 +30,20 @@ main() {
     local cleaned_files=()
     local failed_cleanups=()
     
-    # List of files to clean up
-    local temp_files=(
-        "/tmp/database_backup.sql"
-        "/tmp/files_backup.tar.gz"
-    )
+    # Load site configuration to determine which backup files to clean up
+    if load_site_config 2>/dev/null; then
+        # Use configuration to determine specific backup files
+        local temp_files=(
+            "/tmp/${REMOTE_DB_BACKUP:-database_backup.sql}"
+            "/tmp/${REMOTE_FILES_BACKUP:-files_backup.tar}"
+        )
+    else
+        # Fallback to common backup file patterns
+        local temp_files=(
+            "/tmp/database_backup.sql"
+            "/tmp/files_backup.tar"
+        )
+    fi
     
     # Clean up each file
     for file in "${temp_files[@]}"; do

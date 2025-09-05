@@ -26,18 +26,20 @@ main() {
     
     msg_info "Fetching files backup..."
     
-    # Load backup configuration
-    if ! load_backup_config; then
-        set_status "$ACTION" "error" "Failed to load backup configuration"
+    # Load site configuration
+    if ! load_site_config; then
+        set_status "$ACTION" "error" "Failed to load site configuration"
         pass_state
         return 1
     fi
     
-    # Set local backup file destination
-    local backup_file="./tmp/${REMOTE_FILES_BACKUP}"
+    # Set local backup file destination in system temp
+    local backup_file
+    backup_file="/tmp/${REMOTE_FILES_BACKUP}"
     
     # Build scp command with configuration values
-    local scp_cmd="scp -P ${REMOTE_PORT} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/${REMOTE_FILES_BACKUP} ${backup_file}"
+    local scp_cmd
+    scp_cmd="scp -P ${REMOTE_PORT} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/${REMOTE_FILES_BACKUP} ${backup_file}"
     
     msg_info "Connecting to ${REMOTE_HOST}:${REMOTE_PORT} as ${REMOTE_USER}"
     msg_debug "Downloading ${REMOTE_PATH}/${REMOTE_FILES_BACKUP}"
