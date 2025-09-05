@@ -5,13 +5,17 @@
 
 set -euo pipefail
 
-# Configuration
-CONFIG_FILE="config/last-checked.config"
+# Site-aware configuration
+SITE_NAME="${SITE_NAME:-default}"
+CONFIG_FILE="${CONFIG_FILE:-internal-config/last-checked-${SITE_NAME}.config}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source messaging system and common functions
 source "$SCRIPT_DIR/lib/messaging.sh"
 source "$SCRIPT_DIR/lib/common.sh"
+
+# Set site config file for site-aware functions
+export SITE_CONFIG_FILE="${SITE_CONFIG_FILE:-$(get_site_config_path "$SITE_NAME")}"
 
 # Dynamic action discovery
 get_actions() {
@@ -28,11 +32,13 @@ declare -A CHECKBOX_STATES
 
 # Function to load previous selections from config file
 load_last_selections() {
-    local actions=($(get_actions))
+    local actions
+    mapfile -t actions < <(get_actions)
     
     # Initialize all actions as checked by default
     for action in "${actions[@]}"; do
-        local base_name=$(get_action_base_name "$action")
+        local base_name
+        base_name=$(get_action_base_name "$action")
         CHECKBOX_STATES["$base_name"]="on"
     done
     
@@ -47,9 +53,11 @@ load_last_selections() {
             value=$(echo "$value" | tr -d '[:space:]')
             
             # Check if this key matches any action base name
-            local actions=($(get_actions))
+            local actions
+            mapfile -t actions < <(get_actions)
             for action in "${actions[@]}"; do
-                local base_name=$(get_action_base_name "$action")
+                local base_name
+                base_name=$(get_action_base_name "$action")
                 if [[ "$key" == "$base_name" ]]; then
                     if [[ "$value" == "true" ]]; then
                         CHECKBOX_STATES["$base_name"]="on"
@@ -66,11 +74,13 @@ load_last_selections() {
 # Function to save selections to config file
 save_selections() {
     local selected_actions=("$@")
-    local actions=($(get_actions))
+    local actions
+    mapfile -t actions < <(get_actions)
     
     # Reset all to false first
     for action in "${actions[@]}"; do
-        local base_name=$(get_action_base_name "$action")
+        local base_name
+        base_name=$(get_action_base_name "$action")
         CHECKBOX_STATES["$base_name"]="false"
     done
     
@@ -81,11 +91,12 @@ save_selections() {
     
     # Write to config file
     {
-        echo "# DDEV Backup Manager - Last Selected Actions"
+        echo "# SiteFerry - Last Selected Actions for site: $SITE_NAME"
         echo "# Generated on $(date)"
         echo ""
         for action in "${actions[@]}"; do
-            local base_name=$(get_action_base_name "$action")
+            local base_name
+            base_name=$(get_action_base_name "$action")
             echo "$base_name=${CHECKBOX_STATES[$base_name]}"
         done
     } > "$CONFIG_FILE"
@@ -97,17 +108,20 @@ save_selections() {
 show_action_menu() {
     # Build dialog checklist arguments
     local dialog_args=(
-        --backtitle "DDEV Backup Manager - Proof of Concept"
-        --title "Select Actions to Perform"
+        --backtitle "SiteFerry - Multi-Site Backup Manager"
+        --title "Select Actions to Perform - Site: $SITE_NAME"
         --checklist "Use SPACE to select/deselect, ENTER to confirm, ESC to cancel:"
         15 70 6
     )
     
     # Add each action as a checklist item
-    local actions=($(get_actions))
+    local actions
+    mapfile -t actions < <(get_actions)
     for action in "${actions[@]}"; do
-        local base_name=$(get_action_base_name "$action")
-        local label=$(get_action_label "$action")
+        local base_name
+        base_name=$(get_action_base_name "$action")
+        local label
+        label=$(get_action_label "$action")
         dialog_args+=("$base_name" "$label" "${CHECKBOX_STATES[$base_name]}")
     done
     
@@ -137,7 +151,8 @@ simulate_actions() {
     fi
     
     for selected_action in "${selected_actions[@]}"; do
-        local action_label=$(get_action_display_name "$selected_action")
+        local action_label
+        action_label=$(get_action_display_name "$selected_action")
         echo "▶ Executing: $action_label"
         case "$selected_action" in
             "preflight_checks")
@@ -193,7 +208,9 @@ main() {
     
     # Show menu and get selected actions
     local selected_actions
-    if selected_actions=($(show_action_menu)); then
+    if selected_actions=$(show_action_menu); then
+        # Parse space-separated output into array
+        IFS=' ' read -r -a selected_actions <<< "$selected_actions"
         # Clear screen after dialog
         clear
         
@@ -202,7 +219,8 @@ main() {
             msg_user_info "  (none)"
         else
             for action in "${selected_actions[@]}"; do
-                local label=$(get_action_display_name "$action")
+                local label
+                label=$(get_action_display_name "$action")
                 msg_user_info "  • $label"
             done
         fi

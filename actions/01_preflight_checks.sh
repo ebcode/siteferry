@@ -33,10 +33,12 @@ main() {
         errors+=("DDEV not installed - see https://ddev.com/get-started/")
     else
         local ddev_version
-        if ddev_version=$(ddev version --json 2>/dev/null | grep -o '"version":"[^"]*' | cut -d'"' -f4); then
+        local version_output
+        if version_output=$(ddev -v 2>/dev/null); then
+            ddev_version="${version_output##* }"
             msg_info "DDEV found: $ddev_version"
         else
-            msg_info "DDEV found: $(ddev version 2>/dev/null | head -1 || echo 'version unknown')"
+            msg_info "DDEV found: version unknown"
         fi
     fi
     
@@ -75,7 +77,8 @@ main() {
     
     # Check for duplicate action numbers
     local action_numbers=()
-    local script_dir="$(dirname "${BASH_SOURCE[0]}")/.."
+    local script_dir
+    script_dir="$(dirname "${BASH_SOURCE[0]}")/.."
     local actions_dir="$script_dir/actions"
     
     if [[ -d "$actions_dir" ]]; then

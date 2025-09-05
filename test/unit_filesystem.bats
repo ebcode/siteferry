@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 # Tests for lib/common.sh filesystem operation functions  
-# Tests: get_all_actions(), validate_action_files(), get_current_action_name(), load_backup_config()
+# Tests: get_all_actions(), validate_action_files(), get_current_action_name(), load_site_config()
 
 load helper_common
 
@@ -199,9 +199,9 @@ teardown() {
     assert_output_equals "finalize_results"
 }
 
-# Tests for load_backup_config() function
+# Tests for load_site_config() function
 
-@test "load_backup_config loads valid config file" {
+@test "load_site_config loads valid config file" {
     # Create a valid backup config
     cat > "$TEST_CONFIG_DIR/backup.config" << 'EOF'
 REMOTE_HOST=test.example.com
@@ -224,7 +224,7 @@ EOF
     fi
 }
 
-@test "load_backup_config fails with missing config file" {
+@test "load_site_config fails with missing config file" {
     # No config file created - test that accessing non-existent file fails
     if [[ -f "$TEST_CONFIG_DIR/backup.config" ]]; then
         false # Should not exist
@@ -233,14 +233,14 @@ EOF
     fi
 }
 
-@test "load_backup_config works from lib subdirectory" {
+@test "load_site_config works from lib subdirectory" {
     # Create config file
     cat > "$TEST_CONFIG_DIR/backup.config" << 'EOF'
 REMOTE_HOST=fromlib.example.com
 EOF
     
     # Test direct loading without mocking
-    load_backup_config() {
+    load_site_config() {
         local config_file="$TEST_CONFIG_DIR/backup.config"
         if [[ -f "$config_file" ]]; then
             source "$config_file"
@@ -249,11 +249,11 @@ EOF
         fi
     }
     
-    load_backup_config
+    load_site_config
     [[ "$REMOTE_HOST" == "fromlib.example.com" ]]
 }
 
-@test "load_backup_config handles config with special characters" {
+@test "load_site_config handles config with special characters" {
     # Create config with various characters that might cause issues
     cat > "$TEST_CONFIG_DIR/backup.config" << 'EOF'
 REMOTE_HOST="host-with-dashes.com"
@@ -262,7 +262,7 @@ REMOTE_USER='user_with_underscores'
 SPECIAL_VAR="value with \"quotes\" and 'apostrophes'"
 EOF
     
-    load_backup_config() {
+    load_site_config() {
         local config_file="$TEST_CONFIG_DIR/backup.config"
         if [[ -f "$config_file" ]]; then
             source "$config_file"
@@ -271,22 +271,22 @@ EOF
         fi
     }
     
-    load_backup_config
+    load_site_config
     
     [[ "$REMOTE_HOST" == "host-with-dashes.com" ]]
     [[ "$REMOTE_PATH" == "/path/with spaces/backups" ]]
     [[ "$REMOTE_USER" == "user_with_underscores" ]]
 }
 
-@test "load_backup_config handles empty config file" {
+@test "load_site_config handles empty config file" {
     # Create empty config file
     touch "$TEST_CONFIG_DIR/backup.config"
     
-    run load_backup_config
+    run load_site_config
     assert_success  # Should not fail on empty file
 }
 
-@test "load_backup_config handles config file with comments" {
+@test "load_site_config handles config file with comments" {
     cat > "$TEST_CONFIG_DIR/backup.config" << 'EOF'
 # Backup configuration
 REMOTE_HOST=commented.example.com  # Production server
@@ -298,7 +298,7 @@ REMOTE_DB_BACKUP=prod.sql
 REMOTE_FILES_BACKUP=prod.tar
 EOF
     
-    load_backup_config() {
+    load_site_config() {
         local config_file="$TEST_CONFIG_DIR/backup.config"
         if [[ -f "$config_file" ]]; then
             source "$config_file"
@@ -307,7 +307,7 @@ EOF
         fi
     }
     
-    load_backup_config
+    load_site_config
     [[ "$REMOTE_HOST" == "commented.example.com" ]]
     [[ "$REMOTE_DB_BACKUP" == "prod.sql" ]]
 }

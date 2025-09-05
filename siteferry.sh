@@ -6,7 +6,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_FILE="${CONFIG_FILE:-config/last-checked.config}"
+
+# Source common functions first for site detection
+source "$SCRIPT_DIR/lib/common.sh"
+
+# Site selection logic
+SITE_NAME="${SITE_NAME:-default}"
+CONFIG_FILE="${CONFIG_FILE:-internal-config/last-checked-${SITE_NAME}.config}"
 
 # Source messaging system
 source "$SCRIPT_DIR/lib/messaging.sh"
@@ -15,7 +21,37 @@ source "$SCRIPT_DIR/lib/messaging.sh"
 PIPELINE_START_TIME=$(date +%s)
 export PIPELINE_START_TIME
 
+ensure_internal_config_exists() {
+    # Create missing internal config file with all actions enabled by default
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        msg_debug "Creating missing config file: $CONFIG_FILE"
+        local actions=()
+        local action
+        for action in $(get_all_actions); do
+            actions+=("$(get_action_base_name "$action")")
+        done
+        
+        # Create config directory if it doesn't exist
+        mkdir -p "$(dirname "$CONFIG_FILE")"
+        
+        # Write default config with all actions enabled
+        {
+            echo "# Auto-generated internal configuration for site: $SITE_NAME"
+            echo "# Created: $(date)"
+            echo ""
+            for action in "${actions[@]}"; do
+                echo "${action}=true"
+            done
+        } > "$CONFIG_FILE"
+        
+        msg_debug "Created config file with ${#actions[@]} actions enabled by default"
+    fi
+}
+
 get_enabled_actions() {
+    # Ensure config file exists before parsing
+    ensure_internal_config_exists
+    
     # Parse config and extract enabled actions
     local config_output
     if config_output=$(bash "$SCRIPT_DIR/lib/parse_config.sh" "$CONFIG_FILE"); then
@@ -27,8 +63,7 @@ get_enabled_actions() {
     fi
 }
 
-# Source common functions
-source "$SCRIPT_DIR/lib/common.sh"
+# Common functions already sourced above
 
 # Map base action names to numbered filenames
 map_action_to_filename() {
@@ -74,11 +109,11 @@ build_pipeline() {
     echo "$pipeline_cmd"
 }
 
+
 show_action_selection() {
-    # For now, use the original POC dialog interface
-    # This could be replaced with a more sophisticated interface later
+    # Pass site context to action selection dialog
     if command -v dialog &> /dev/null; then
-        if ! bash "$SCRIPT_DIR/action-selection.sh"; then
+        if ! SITE_NAME="$SITE_NAME" CONFIG_FILE="$CONFIG_FILE" SITE_CONFIG_FILE="$SITE_CONFIG_FILE" bash "$SCRIPT_DIR/action-selection.sh"; then
             echo "Operation cancelled"
             exit 0
         fi
@@ -87,12 +122,56 @@ show_action_selection() {
     fi
 }
 
+parse_site_selection() {
+    local args=("$@")
+    local i=0
+    
+    while [[ $i -lt ${#args[@]} ]]; do
+        case "${args[i]}" in
+            --site)
+                if [[ $((i + 1)) -lt ${#args[@]} ]]; then
+                    SITE_NAME="${args[$((i + 1))]}"
+                    # Validate site name
+                    if ! validate_site_name "$SITE_NAME"; then
+                        msg_error "Site '$SITE_NAME' not found. Available sites:"
+                        get_available_sites
+                        exit 1
+                    fi
+                    # Update config file path for selected site
+                    CONFIG_FILE="internal-config/last-checked-${SITE_NAME}.config"
+                    SITE_CONFIG_FILE="$(get_site_config_path "$SITE_NAME")"
+                    export SITE_CONFIG_FILE
+                    i=$((i + 2))
+                else
+                    msg_error "--site requires a site name"
+                    exit 1
+                fi
+                ;;
+            --list-sites)
+                echo "Available sites:"
+                get_available_sites
+                exit 0
+                ;;
+            *)
+                i=$((i + 1))
+                ;;
+        esac
+    done
+}
+
 main() {
     # Parse verbosity from command line first
     parse_verbosity "$@"
     
-    msg_user_info "DDEV Backup Manager - Pipeline Mode"
-    msg_user_info "==================================="
+    # Parse site selection and handle special commands
+    parse_site_selection "$@"
+    
+    # Ensure SITE_CONFIG_FILE is set for all site operations
+    export SITE_CONFIG_FILE="${SITE_CONFIG_FILE:-$(get_site_config_path "$SITE_NAME")}"
+    
+    msg_user_info "SiteFerry - Multi-Site Backup Manager"
+    msg_user_info "====================================="
+    msg_user_info "Site: $SITE_NAME"
     msg_user_info ""
     
     # Show action selection unless --no-select is specified
@@ -133,29 +212,39 @@ main() {
     eval "$pipeline_cmd"
 }
 
-# Show help if requested
+# Show help if requested (handle before parse_site_selection to avoid conflicts)
 if [[ "$*" == *"--help"* ]] || [[ "$*" == *"-h"* ]]; then
     cat << 'EOF'
-DDEV Backup Manager - Pipeline Mode
+SiteFerry - Multi-Site Backup Manager
 
-Usage:
-  ./siteferry.sh [options]
+Usage: siteferry.sh [OPTIONS] [--site SITE_NAME]
 
-Options:
-  --select      Show action selection dialog before execution
-  --dry-run     Show pipeline command without executing
-  -q, --quiet   Quiet mode (errors only)
-  -v, --verbose Verbose mode (show info and debug)
-  -vv           Debug mode (show debug details)
-  -vvv          Trace mode (show all internals)
-  --help, -h    Show this help message
+Site Options:
+    --site SITE_NAME    Select specific site (default: default)
+    --list-sites       Show available sites
+    --tags             Show all tags across all sites
 
-The script reads configuration from 'config/last-checked.config' and builds
-a dynamic pipeline of enabled actions. Each action is executed in
-sequence, with error handling and state passing between stages.
+Pipeline Options:
+    --select           Show action selection dialog before execution
+    --no-select        Skip action selection dialog
+    --dry-run          Show pipeline command without executing
 
-Actions are auto-discovered from actions/*.sh files and executed based
-on configuration. Results are reported at the end of the pipeline.
+Verbosity Options:
+    -q, --quiet        Quiet mode (errors only)
+    -v, --verbose      Verbose mode (show info and debug)
+    -vv                Debug mode (show debug details)
+    -vvv               Trace mode (show all internals)
+    --help, -h         Show this help message
+
+Examples:
+    siteferry.sh                          # Run with default site
+    siteferry.sh --site mystore           # Run with mystore site  
+    siteferry.sh --list-sites             # List available sites
+    siteferry.sh --site mystore --select  # Select actions for mystore
+
+The script reads site configuration and builds dynamic pipelines of enabled 
+actions. Each action is executed in sequence, with error handling and state 
+passing between stages.
 EOF
     exit 0
 fi

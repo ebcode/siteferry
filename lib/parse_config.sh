@@ -6,11 +6,21 @@
 
 set -euo pipefail
 
-CONFIG_FILE="${1:-config/last-checked.config}"
+# Site-aware config handling
+SITE_NAME="${SITE_NAME:-$(basename "${1:-internal-config/last-checked.config}" .config | sed 's/last-checked-//')}"
+if [[ "$SITE_NAME" == "last-checked" ]]; then
+    SITE_NAME="default"
+fi
+
+CONFIG_FILE="${1:-internal-config/last-checked-${SITE_NAME}.config}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source common functions for dynamic action discovery
 source "$SCRIPT_DIR/common.sh"
+
+# Set site config file for site-aware functions
+SITE_CONFIG_FILE="$(get_site_config_path "$SITE_NAME")"
+export SITE_CONFIG_FILE
 
 # Get all actions dynamically
 get_actions_array() {
