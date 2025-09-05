@@ -35,11 +35,11 @@ siteferry/
 │   ├── common.sh                 # Shared utilities, state management & action discovery
 │   └── parse_config.sh           # Dynamic configuration parser
 └── actions/                      # Numbered action modules (alphabetically sorted)
-    ├── 01_preflight_checks.sh    # System requirements & SSH connectivity validation
-    ├── 02_fetch_db_backup.sh     # Database backup retrieval (REAL IMPLEMENTATION)
-    ├── 03_fetch_files_backup.sh  # Files backup retrieval (simulated)
-    ├── 04_import_database.sh     # Database import operations (simulated)
-    ├── 05_import_files.sh        # Files import operations (simulated)
+    ├── 01_preflight_checks.sh    # System requirements & SSH connectivity validation  
+    ├── 02_fetch_files_backup.sh  # Files backup retrieval (REAL IMPLEMENTATION)
+    ├── 03_import_files.sh        # Files import operations (REAL IMPLEMENTATION)
+    ├── 04_fetch_db_backup.sh     # Database backup retrieval (REAL IMPLEMENTATION)
+    ├── 05_import_database.sh     # Database import operations (simulated)
     ├── 08_cleanup_temp.sh        # Temporary file cleanup (simulated)
     └── 99_finalize_results.sh    # Pipeline results reporting (always last)
 ```
@@ -98,10 +98,10 @@ siteferry/
 - **Strengths**: Zero hardcoded ACTION variables, clear module boundaries, consistent patterns, excellent dynamic action system
 - **Weaknesses**: Mixed simulation/real code creates maintenance complexity
 
-### Implementation Progress: **17%**
-- **Real Actions**: 1/6 (02_fetch_db_backup.sh)
+### Implementation Progress: **50%**
+- **Real Actions**: 3/6 (02_fetch_files_backup.sh, 03_import_files.sh, 04_fetch_db_backup.sh)  
 - **Enhanced Actions**: 1/6 (01_preflight_checks.sh with SSH testing)
-- **Simulated Actions**: 4/6 (remaining actions)
+- **Simulated Actions**: 2/6 (05_import_database.sh, 08_cleanup_temp.sh)
 
 ## Improvement Recommendations
 
@@ -191,7 +191,22 @@ siteferry/
 
 ### Major Implementation Breakthroughs
 
-1. **First Real Implementation**: Successfully converted `02_fetch_db_backup.sh` from simulation to real SSH/SCP functionality
+1. **Files-First Architecture**: Reordered actions to prioritize static sites before database operations following "simpler case first" principle
+   - **02_fetch_files_backup.sh** moved to position 2 (was 3rd)
+   - **03_import_files.sh** moved to position 3 (was 5th) 
+   - Database operations moved down to positions 4-5
+   - Enables immediate static site deployment without database complexity
+
+2. **Real Implementation Milestone**: Achieved 50% real functionality (3/6 actions)
+   - **02_fetch_files_backup.sh**: Real SCP download from remote server
+   - **03_import_files.sh**: Real tar extraction to `./sites` with proper permissions
+   - **04_fetch_db_backup.sh**: Existing real SSH/SCP functionality
+
+3. **Static Site Workflow Complete**: End-to-end static site deployment now fully functional
+   - Preflight checks → Files backup → Files import → Results reporting
+   - Successfully tested with 1 file extracted to `./sites/hello`
+
+4. **First Database Implementation**: Successfully converted `04_fetch_db_backup.sh` from simulation to real SSH/SCP functionality
    - Loads configuration from `config/backup.config`
    - Downloads actual database backups using `scp` command
    - Proper error handling and status reporting
@@ -222,7 +237,7 @@ siteferry/
 - **Architecture**: Maintained A rating with enhanced dynamic capabilities  
 - **Maintainability**: Upgraded to A due to perfect dynamic action system
 - **Lines of Code**: Expanded from ~650 to 1,159 lines
-- **Implementation Progress**: 17% real functionality (1/6 actions)
+- **Implementation Progress**: 50% real functionality (3/6 actions)
 
 ## Usage Examples
 
@@ -294,10 +309,12 @@ vim config/backup.config
 
 ## Next Immediate Steps
 
-1. **Fix `.gz` compression handling in `04_import_database.sh`** ⚠️ CRITICAL
+1. **Fix `.gz` compression handling in `05_import_database.sh`** ⚠️ CRITICAL  
 2. **Implement real database import using `ddev import-db`**
-3. **Complete real implementations for files backup and import**
+3. **Complete real implementations for cleanup operations**
 4. **Replace `StrictHostKeyChecking=no` with proper SSH configuration**
+
+**Current Status**: Static site workflow (files-first) complete and fully functional. Database operations remain for dynamic site support.
 
 ## Shellcheck Code Quality Improvements (2025-09-04 Continued Session)
 
@@ -422,3 +439,6 @@ User specifically requested **not to run shellcheck verification on actions file
 - IMPORTANT! Do not attempt to write tests for networking (SSH, scp) functions / scripts.
 - When testing siteferry.sh, always pass --no-select to avoid the dialog window
 - Make git commit messages more succinct.
+- Please keep commit messages to one line, separated by semi-colons
+- ALWAYS test code changes in the shell first before editing files to verify they work correctly
+- IMPORTANT! Never pass --no-verify to git commit. Fix the bats tests instead.
