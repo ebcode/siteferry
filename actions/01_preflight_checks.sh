@@ -69,6 +69,86 @@ main() {
         msg_debug "wget found"
     fi
     
+    # Validate action files structure (user-facing check)
+    msg_info "Validating action files structure..."
+    local action_validation_errors=()
+    
+    # Check for duplicate action numbers
+    local action_numbers=()
+    local script_dir="$(dirname "${BASH_SOURCE[0]}")/.."
+    local actions_dir="$script_dir/actions"
+    
+    if [[ -d "$actions_dir" ]]; then
+        while IFS= read -r -d '' file; do
+            local basename
+            basename=$(basename "$file" .sh)
+            if [[ "$basename" =~ ^([0-9]+)_ ]]; then
+                local number="${BASH_REMATCH[1]}"
+                # Check if this number already exists
+                if [[ " ${action_numbers[*]} " == *" $number "* ]]; then
+                    action_validation_errors+=("Duplicate action number '$number' found in $(basename "$file") - each action must have a unique number")
+                else
+                    action_numbers+=("$number")
+                fi
+            fi
+        done < <(find "$actions_dir" -name "*.sh" -print0 2>/dev/null)
+        
+        # Check for invalid action naming
+        while IFS= read -r -d '' file; do
+            local basename
+            basename=$(basename "$file")
+            # Skip finalize_results as it's allowed to be special
+            if [[ "$basename" != "*finalize_results.sh" ]] && [[ ! "$basename" =~ ^[0-9]{1,3}_[a-z_]+\.sh$ ]]; then
+                action_validation_errors+=("Invalid action file name: '$basename' - must follow pattern: N_action_name.sh (e.g., 1_action.sh, 01_preflight_checks.sh, 001_custom.sh)")
+            fi
+        done < <(find "$actions_dir" -name "*.sh" -print0 2>/dev/null)
+        
+        # Check for non-executable action files
+        while IFS= read -r -d '' file; do
+            if [[ ! -x "$file" ]]; then
+                action_validation_errors+=("Action file '$(basename "$file")' is not executable - run: chmod +x $(basename "$file")")
+            fi
+        done < <(find "$actions_dir" -name "[0-9]*_*.sh" -print0 2>/dev/null)
+        
+    else
+        action_validation_errors+=("Actions directory not found at: $actions_dir")
+    fi
+    
+    # Add action validation errors to main errors array
+    errors+=("${action_validation_errors[@]}")
+    
+    # Validate configuration files
+    msg_info "Validating configuration files..."
+    local config_dir="$script_dir/config"
+    
+    if [[ ! -d "$config_dir" ]]; then
+        errors+=("Configuration directory not found at: $config_dir")
+    else
+        # Check that backup.config exists and is readable
+        if [[ ! -f "$config_dir/backup.config" ]]; then
+            errors+=("backup.config not found - create $config_dir/backup.config with your server settings")
+        elif [[ ! -r "$config_dir/backup.config" ]]; then
+            errors+=("backup.config exists but is not readable - check file permissions")
+        else
+            # Validate backup.config contents
+            if load_backup_config 2>/dev/null; then
+                local config_errors=()
+                [[ -z "${REMOTE_HOST:-}" ]] && config_errors+=("REMOTE_HOST not set in backup.config")
+                [[ -z "${REMOTE_USER:-}" ]] && config_errors+=("REMOTE_USER not set in backup.config")
+                [[ -z "${REMOTE_PORT:-}" ]] && config_errors+=("REMOTE_PORT not set in backup.config")
+                [[ -z "${REMOTE_PATH:-}" ]] && config_errors+=("REMOTE_PATH not set in backup.config")
+                
+                if [[ ${#config_errors[@]} -gt 0 ]]; then
+                    local config_error_msg
+                    config_error_msg=$(IFS=', '; echo "${config_errors[*]}")
+                    errors+=("backup.config validation failed: $config_error_msg")
+                fi
+            else
+                errors+=("backup.config has syntax errors - check for valid bash variable assignments")
+            fi
+        fi
+    fi
+    
     # Test SSH connectivity to backup server (non-blocking)
     msg_info "Testing SSH connectivity to backup server..."
     if load_backup_config 2>/dev/null; then
