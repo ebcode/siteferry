@@ -1,23 +1,17 @@
-# SiteFerry - Project Summary
+# SiteFerry - Project Context
 
 ## Project Overview
 
-**SiteFerry** is a modular, pipeline-based Bash automation system 
-designed to streamline database and file backup operations for DDEV-based 
-development environments. The system provides an interactive interface for 
-selecting backup/restore actions and executes them in a configurable, 
-dependency-aware pipeline.
+**SiteFerry** is a modular, pipeline-based Bash automation system designed to streamline database and file backup operations for DDEV-based development environments. The system provides an interactive interface for selecting backup/restore actions and executes them in a configurable, dependency-aware pipeline with **multi-site architecture support**.
 
 ### Core Architecture
 
-The project follows a **modular pipeline architecture** with the following key components:
-
-- **Pipeline Orchestrator** (`siteferry.sh`) - Main entry point that builds and executes dynamic pipelines
-- **Interactive Interface** (`action-selection.sh`) - Dialog-based action selection with state persistence  
+- **Pipeline Orchestrator** (`siteferry.sh`) - Main entry point with `--site SITE_NAME` support
+- **Interactive Interface** (`action-selection.sh`) - Dialog-based action selection with state persistence
 - **Action Modules** (`actions/NN_*.sh`) - Numbered pipeline stages for ordered execution
-- **Configuration System** - File-based configuration with dynamic action discovery
+- **Configuration System** - Site-aware configuration with `sites-config/` and `internal-config/`
 - **State Management** - Environment variable-based state passing between pipeline stages
-- **Action Discovery** (`lib/common.sh`) - Dynamic discovery and management of numbered actions
+- **Multi-Site Support** - Complete site isolation with `--site`, `--list-sites`, and `--tags` commands
 
 ## Project Structure
 
@@ -25,474 +19,122 @@ The project follows a **modular pipeline architecture** with the following key c
 siteferry/
 ├── siteferry.sh                  # Main pipeline orchestrator
 ├── action-selection.sh           # Interactive action selection interface
-├── debug_finalize.sh             # Debug utility for pipeline state
-├── config/                       # Configuration directory
-│   ├── backup.config             # SSH/backup server configuration
-│   ├── last-checked.config       # User action selections
-│   ├── test-config.config        # Test configuration
-│   └── test-preflight.config     # Test preflight configuration
+├── sites-config/                 # Site-specific configurations
+│   ├── default/
+│   │   └── default.config        # Default site configuration
+│   ├── mystore/
+│   └── blog-prod/
+├── internal-config/              # Site-specific internal state
 ├── lib/                          # Shared utilities (modular architecture)
-│   ├── common.sh                 # Core orchestrator, path constants & state management
+│   ├── common.sh                 # Core orchestrator & state management
 │   ├── string_utils.sh           # String processing utilities
-│   ├── file_utils.sh             # File discovery and validation utilities
-│   ├── config_utils.sh           # Configuration management utilities
-│   ├── ssh_utils.sh              # SSH connectivity testing utilities
+│   ├── file_utils.sh             # File discovery and validation
+│   ├── config_utils.sh           # Configuration management
+│   ├── ssh_utils.sh              # SSH connectivity testing
 │   └── parse_config.sh           # Dynamic configuration parser
-└── actions/                      # Numbered action modules (alphabetically sorted)
-    ├── 01_preflight_checks.sh    # System requirements & SSH connectivity validation  
-    ├── 02_fetch_files_backup.sh  # Files backup retrieval (REAL IMPLEMENTATION)
-    ├── 03_import_files.sh        # Files import operations (REAL IMPLEMENTATION)
-    ├── 04_fetch_db_backup.sh     # Database backup retrieval (REAL IMPLEMENTATION)
+└── actions/                      # Numbered action modules
+    ├── 01_preflight_checks.sh    # System requirements & SSH connectivity
+    ├── 02_fetch_files_backup.sh  # Files backup retrieval (REAL)
+    ├── 03_import_files.sh        # Files import operations (REAL)
+    ├── 04_fetch_db_backup.sh     # Database backup retrieval (REAL)
     ├── 05_import_database.sh     # Database import operations (simulated)
+    ├── 06_setup_ddev.sh          # DDEV auto-setup (NEW - PENDING)
     ├── 08_cleanup_temp.sh        # Temporary file cleanup (simulated)
-    └── 99_finalize_results.sh    # Pipeline results reporting (always last)
+    └── 99_finalize_results.sh    # Pipeline results reporting
 ```
 
 ## Key Features
 
 ### ✅ Strengths
 
-1. **Modular Design**: Clean separation of concerns with individual action modules
-2. **Pipeline Architecture**: Dynamic pipeline building based on configuration
-3. **Dynamic Action Discovery**: Automatic discovery of numbered action files
-4. **Ordered Execution**: Alphabetical sorting using numeric prefixes (01_, 02_, etc.)
-5. **Drop-in Actions**: Add new actions by simply placing `NN_action_name.sh` files
-6. **State Persistence**: Configuration state saved between runs
-7. **Error Handling**: Comprehensive error catching with `set -euo pipefail`
-8. **User Experience**: Interactive dialog interface with checkbox selection
-9. **Comprehensive Logging**: Timestamped logging with different levels
-10. **Flexible Configuration**: Easy to enable/disable individual actions
-11. **Results Reporting**: Detailed pipeline execution summaries
-12. **Extensible Architecture**: No hard-coded action lists, fully dynamic system
-13. **Real Implementation**: First action (02_fetch_db_backup) now uses real SSH/SCP operations
-14. **Configuration Management**: Dedicated config/ directory with backup server settings
-15. **Self-Aware Actions**: Scripts dynamically determine their ACTION name from filename
-16. **Non-blocking Preflight**: SSH connectivity testing that warns but doesn't abort
-17. **Unix Philosophy Adherence**: Each action does one thing well with clear interfaces
+1. **Multi-Site Architecture**: Complete site isolation with `sites-config/` structure
+2. **Dynamic Action Discovery**: Automatic discovery of numbered action files
+3. **Site-Aware Operations**: All actions support per-site configuration
+4. **Drop-in Actions**: Add new actions by placing `NN_action_name.sh` files
+5. **Modular Design**: Clean separation with focused utility modules
+6. **Real Implementation**: 50% complete - files-first workflow operational
+7. **Unix Philosophy Adherence**: Each action does one thing well
 
-### ⚠️ Areas for Improvement
+### ⚠️ Current Issues
 
-1. **Mixed Implementation State**: Only 1/6 actions have real implementation (17% complete)
-   - `02_fetch_db_backup.sh` - ✅ Real SSH/SCP implementation
-   - `03_fetch_files_backup.sh`, `04_import_database.sh`, `05_import_files.sh` - ❌ Still simulated
-2. **File Format Incompatibility**: Critical mismatch between fetch and import actions
-   - Downloads `db.sql.gz` (compressed) but import expects `/tmp/database_backup.sql` (uncompressed)
-3. **Security Concerns**: Uses `StrictHostKeyChecking=no` which bypasses SSH security
-4. **Path Management**: Centralized path constants provide flexibility (configurable via `TEMP_DIR`)
-5. **Configuration Limitations**: Single backup.config file with no validation or environment support
-6. **Limited Error Recovery**: No retry mechanisms for network operations
-7. **Testing Framework**: No automated testing infrastructure
-8. **Logging Centralization**: Logs go to stderr but no centralized log file management
+1. **Implementation Status**: 50% complete (3/6 actions real, 2/6 simulated)
+2. **Pending DDEV Integration**: Task 8 - auto-setup action not yet implemented
+3. **Tags System**: `--tags` command filtering not yet implemented
+4. **Security**: Uses `StrictHostKeyChecking=no` (needs proper SSH key management)
 
 ## Technical Assessment
 
-### Code Quality:
-- **Strengths**: Consistent style, excellent error handling, fully modular structure, self-aware actions
-- **Weaknesses**: Mixed implementation state, file format compatibility issues
-
-### Architecture:
-- **Strengths**: Well-designed pipeline pattern, dynamic action discovery, fully extensible, clean interfaces, Unix philosophy adherence
-- **Weaknesses**: File format mismatches between actions, configuration system needs validation
-
-### Security:
-- **Strengths**: Uses SSH for real transfers, safe shell practices with `set -euo pipefail`
-- **Weaknesses**: `StrictHostKeyChecking=no`, no SSH key management
-
-### Maintainability:
-- **Strengths**: Zero hardcoded variables, clear module boundaries, consistent patterns, excellent dynamic action system, modular utility architecture
-- **Weaknesses**: Mixed simulation/real code creates maintenance complexity
-
-### Implementation Progress: **50%**
-- **Real Actions**: 3/6 (02_fetch_files_backup.sh, 03_import_files.sh, 04_fetch_db_backup.sh)  
-- **Enhanced Actions**: 1/6 (01_preflight_checks.sh with SSH testing)
-- **Simulated Actions**: 2/6 (05_import_database.sh, 08_cleanup_temp.sh)
-
-## Improvement Recommendations
-
-### Critical Priority (Must Fix)
-
-1. **File Format Compatibility** - Fix compression mismatch between fetch and import
-   ```bash
-   # In 04_import_database.sh, handle compressed files:
-   if [[ "$backup_file" == *.gz ]]; then
-       gunzip -c "$backup_file" | ddev import-db
-   else
-       ddev import-db < "$backup_file"
-   fi
-   ```
-
-2. **Complete Real Implementations** - Replace remaining simulation code
-   - `03_fetch_files_backup.sh` - Implement real file backup retrieval
-   - `04_import_database.sh` - Implement real DDEV database import
-   - `05_import_files.sh` - Implement real file extraction and import
-
-### High Priority
-
-3. **Security Hardening**
-   - Replace `StrictHostKeyChecking=no` with proper SSH key management
-   - Implement secure temporary file creation with proper permissions
-   - Add configuration validation and sanitization
-
-4. **Configuration Management**
-   ```bash
-   # Support multiple environments
-   config/
-   ├── backup.config          # Base configuration
-   ├── dev.config            # Development overrides
-   └── production.config     # Production settings
-   ```
-
-5. **Error Recovery & Retry Logic**
-   ```bash
-   # Add retry mechanism for network operations
-   retry_with_backoff() {
-       local max_attempts=3
-       local delay=1
-       # Implementation details...
-   }
-   ```
-
-### Medium Priority
-
-6. **Testing Infrastructure**
-   - Unit tests for individual modules  
-   - Integration tests for full pipelines
-   - Mock/stub system for testing without real backups
-
-7. **Enhanced Logging**
-   ```bash
-   # Centralized logging with rotation
-   LOG_FILE="${LOG_DIR}/ddev-backup-$(date +%Y%m%d).log"
-   setup_logging() {
-       exec 1> >(tee -a "$LOG_FILE")
-       exec 2> >(tee -a "$LOG_FILE" >&2)
-   }
-   ```
-
-8. **Path Management**
-   - Configurable backup destination directories
-   - Proper temporary file cleanup
-   - Backup file naming conventions
-
-9. **User Experience Enhancements** 
-   - Progress bars for long operations
-   - Estimated time remaining  
-   - Better error messaging with recovery suggestions
-
-### Low Priority
-
-10. **Performance Optimizations**
-    - Parallel execution of independent actions
-    - Compression optimization for transfers
-    - Delta/incremental backup support
-
-11. **Extensibility Features**
-    - Plugin system for custom actions
-    - Hook system for pre/post action callbacks
-    - Custom notification systems (email, Slack, etc.)
-
-## Recent Session Accomplishments (2025-09-06)
-
-### Major Refactoring and Architecture Improvements
-
-1. **Function Generalization**: Renamed project-specific "action" functions to be more generic and reusable
-   - `strip_action_prefix()` → `strip_numeric_prefix()` (generic string processing)
-   - `get_current_action_name()` → `get_current_script_name()` (generic script utilities)
-   - `get_action_display_name()` → `get_display_name()` (generic formatting)
-   - `get_all_actions()` → `get_all_numbered_scripts()` (generic file discovery)
-   - `validate_action_files()` → `validate_numbered_script_files()` (generic validation)
-   - Removed `get_action_base_name()` as redundant wrapper
-
-2. **Path Constants Extraction**: Eliminated hardcoded `/tmp/` paths across 5 action files
-   ```bash
-   # Centralized path management in lib/common.sh
-   declare -xr TEMP_DIR="${TEMP_DIR:-/tmp}"
-   declare -xr DB_BACKUP_PATH="$TEMP_DIR"
-   declare -xr FILES_BACKUP_PATH="$TEMP_DIR"
-   ```
-   - Enhanced security and flexibility (paths now configurable via environment)
-   - Updated all action files to use constants instead of hardcoded paths
-
-3. **Modular Architecture Split**: Decomposed monolithic `lib/common.sh` into focused modules
-   - **Before**: 359 lines (monolithic architecture)
-   - **After**: 71 lines (orchestrator) + 4 focused modules = 80% size reduction
-   - Created `lib/string_utils.sh` - String processing functions
-   - Created `lib/file_utils.sh` - File discovery and validation utilities
-   - Created `lib/config_utils.sh` - Configuration management utilities
-   - Created `lib/ssh_utils.sh` - SSH connectivity testing utilities
-   - Maintained backward compatibility through automatic imports
-
-4. **Test Suite Optimization**: Streamlined redundant test cases while maintaining 100% coverage
-   - Removed 7 redundant tests from `test/unit_common_string.bats` (25→18 tests)
-   - Eliminated project-specific duplicate test cases
-   - Fixed duplicate function calls within tests
-   - Improved test naming and descriptions for generalized functions
-
-5. **File Cleanup**: Removed orphaned empty file `actions/025_in_between.sh`
-   - Prevents confusion in file discovery
-   - Maintains clean numbering conventions
-
-### Technical Achievements
-
-- **Architecture Quality**: Improved separation of concerns with focused utility modules
-- **Code Reusability**: Functions now have generic names suitable for any numbered script project
-- **Maintainability**: Related functions grouped by logical responsibility
-- **Flexibility**: Path constants configurable via environment variables
-- **Test Coverage**: All **136 tests still pass** after major refactoring
-- **Code Quality**: Shellcheck compliant across all new and modified files
-
-## Previous Session Accomplishments (2025-09-04)
-
-### Major Implementation Breakthroughs
-
-1. **Files-First Architecture**: Reordered actions to prioritize static sites before database operations following "simpler case first" principle
-   - **02_fetch_files_backup.sh** moved to position 2 (was 3rd)
-   - **03_import_files.sh** moved to position 3 (was 5th) 
-   - Database operations moved down to positions 4-5
-   - Enables immediate static site deployment without database complexity
-
-2. **Real Implementation Milestone**: Achieved 50% real functionality (3/6 actions)
-   - **02_fetch_files_backup.sh**: Real SCP download from remote server
-   - **03_import_files.sh**: Real tar extraction to `./sites` with proper permissions
-   - **04_fetch_db_backup.sh**: Existing real SSH/SCP functionality
-
-3. **Static Site Workflow Complete**: End-to-end static site deployment now fully functional
-   - Preflight checks → Files backup → Files import → Results reporting
-   - Successfully tested with 1 file extracted to `./sites/hello`
-
-4. **First Database Implementation**: Successfully converted `04_fetch_db_backup.sh` from simulation to real SSH/SCP functionality
-   - Loads configuration from `config/backup.config`
-   - Downloads actual database backups using `scp` command
-   - Proper error handling and status reporting
-
-2. **Configuration System**: Created dedicated configuration management
-   ```bash
-   # config/backup.config
-   REMOTE_HOST=test.com
-   REMOTE_PORT=22
-   REMOTE_PATH=/data/backups
-   REMOTE_USER=root
-   REMOTE_FILE=db.sql.gz
-   ```
-
-3. **Dynamic ACTION Architecture**: Eliminated all hardcoded variables across the entire codebase
-   - Added `get_current_action_name()` function for self-aware scripts
-   - All 6 action scripts now use `ACTION=$(get_current_action_name)`
-   - Perfect adherence to DRY principles and Unix philosophy
-
-4. **Enhanced Preflight Checks**: Added non-blocking SSH connectivity testing
-   - Tests actual SSH connection to backup server
-   - Uses robust timeout handling with fallback
-   - Warns but doesn't abort on SSH failures (supports local backup workflows)
-
-### Technical Achievements
-
-- **Code Quality**: Upgraded from B+ to A- due to elimination of hardcoded variables
-- **Architecture**: Maintained A rating with enhanced dynamic capabilities  
-- **Maintainability**: Upgraded to A due to perfect dynamic action system
-- **Lines of Code**: Expanded from ~650 to 1,159 lines
-- **Implementation Progress**: 50% real functionality (3/6 actions)
+- **Architecture**: A-grade modular pipeline with multi-site support
+- **Code Quality**: Shellcheck-compliant, generalized function names
+- **Implementation**: 50% real functionality, files-first workflow complete
+- **Testing**: 136/136 bats tests passing for all library functions
 
 ## Usage Examples
 
-### Basic Usage
+### Multi-Site Operations
 ```bash
-# Interactive mode (default)
-./siteferry.sh
+# List available sites
+./siteferry.sh --list-sites
 
-# Show action selection dialog
-./siteferry.sh --select
+# Work with specific site
+./siteferry.sh --site mystore
+
+# Filter sites by tags (planned)
+./siteferry.sh --tags "production,laravel"
+```
+
+### Basic Operations
+```bash
+# Interactive mode (default site)
+./siteferry.sh
 
 # Preview pipeline without execution
 ./siteferry.sh --dry-run
 
-# Help information
-./siteferry.sh --help
-```
-
-### Adding New Actions
-```bash
-# Create a new action that runs between existing actions
-cp actions/01_preflight_checks.sh actions/15_custom_validation.sh
-
-# The system automatically discovers and integrates the new action
-# No code changes needed - it appears in dialogs and configuration
-# ACTION variable is automatically determined from filename
-```
-
-### Configuration Management
-```bash
-# Use custom action configuration
-CONFIG_FILE=config/production.config ./siteferry.sh
-
-# Edit action configuration manually
-vim config/last-checked.config
-
-# Edit backup server configuration
-vim config/backup.config
-```
-
-### Real Implementation Testing
-```bash
-# Test with real SSH connectivity (requires backup.config)
+# Non-interactive execution
 ./siteferry.sh --no-select
-
-# Test individual action with debug output
-./actions/02_fetch_db_backup.sh <<< "export fetch_db_backup_enabled=true"
 ```
 
-## Implementation Timeline
+## Current Implementation Status
 
-### ✅ Phase 1 (Completed): Foundation & Architecture
-- ✅ Dynamic ACTION variable system - Perfect DRY implementation
-- ✅ Configuration system with `config/backup.config`  
-- ✅ First real implementation (`02_fetch_db_backup.sh`)
-- ✅ Enhanced preflight checks with SSH connectivity testing
+### ✅ Completed Multi-Site Architecture
+- Site-specific config structure (`sites-config/` and `internal-config/`)
+- Site selection with `--site SITE_NAME` and `--list-sites`
+- Site-aware action selection and execution
+- Dynamic site config creation
+- Modular utility architecture (5 focused modules)
 
-### 🔄 Phase 2 (Current): Real Implementation Completion
-- 🎯 **CRITICAL**: Fix file format compatibility (`.gz` vs uncompressed)
-- 🎯 Implement remaining real actions (`03_fetch_files_backup.sh`, `04_import_database.sh`, `05_import_files.sh`)
-- 🎯 Security hardening (SSH key management, remove `StrictHostKeyChecking=no`)
-- 🎯 Configuration validation and multi-environment support
+### 🔄 Current Phase: Remaining Multi-Site Tasks
+1. **Task 8**: Implement DDEV auto-setup action (`06_setup_ddev.sh`)
+2. **Task 9**: Implement tags system with `--tags` command
+3. **Task 10**: Add hook placeholders to config template
+4. **Task 11**: Test multi-site functionality and DDEV integration
 
-### 📋 Phase 3 (Upcoming): Polish & Reliability
-- Retry mechanisms for network operations
-- Comprehensive testing framework
-- Path management and secure temporary files
-- Enhanced logging and error recovery
+### Real vs Simulated Actions
+- **Real**: `02_fetch_files_backup.sh`, `03_import_files.sh`, `04_fetch_db_backup.sh`
+- **Simulated**: `05_import_database.sh`, `08_cleanup_temp.sh`
+- **New/Pending**: `06_setup_ddev.sh` (DDEV auto-setup)
 
-## Next Immediate Steps
+## Development Guidelines
 
-1. **Fix `.gz` compression handling in `05_import_database.sh`** ⚠️ CRITICAL  
-2. **Implement real database import using `ddev import-db`**
-3. **Complete real implementations for cleanup operations**
-4. **Replace `StrictHostKeyChecking=no` with proper SSH configuration**
+### Unix Philosophy
+Write programs that do one thing and do it well. Write programs to work together. Handle text streams as universal interface.
 
-**Current Status**: Static site workflow (files-first) complete and fully functional. Database operations remain for dynamic site support.
+### Project Rules
+- **No backwards compatibility required** - brand new project
+- **Test changes first** - always verify in shell before editing files
+- **No networking tests** - avoid testing SSH/scp functions
+- **Use `--no-select`** when testing siteferry.sh to avoid dialogs
+- **Succinct commit messages** - one line, semicolon-separated
+- **Fix bats tests** - never use `--no-verify` with git commit
 
-## Shellcheck Code Quality Improvements (2025-09-04 Continued Session)
-
-### Complete Shellcheck Remediation Project
-
-Successfully completed comprehensive shellcheck static analysis and remediation across the entire codebase to improve code quality and eliminate bash scripting best practice violations.
-
-#### Scope and Results
-- **Files Analyzed**: All shell scripts in project (main script + 3 lib files + 7 action files = 11 total)
-- **Warnings Fixed**: 25+ shellcheck warnings across SC2155, SC2207, SC2001, SC1090 categories
-- **Final Status**: All scripts now pass shellcheck with only harmless SC1091 (info) messages for dynamic sourcing
-
-#### Key Warning Types and Fixes Applied
-
-1. **SC2155 - Declare and assign separately** (Most common - 15+ instances)
-   ```bash
-   # Before (masks return values)
-   local end_time=$(date +%s)
-   
-   # After (proper error handling)
-   local end_time
-   end_time=$(date +%s)
-   ```
-
-2. **SC2207 - Prefer mapfile over command substitution arrays** (5+ instances)
-   ```bash
-   # Before (word splitting issues)
-   local enabled_actions=($(get_enabled_actions))
-   
-   # After (robust array handling)
-   local enabled_actions
-   mapfile -t enabled_actions < <(get_enabled_actions)
-   ```
-
-3. **SC2001 - Use parameter expansion instead of sed** (2 instances)
-   ```bash
-   # Before (external command inefficiency)
-   echo "$action_with_prefix" | sed 's/^[0-9]*_//'
-   
-   # After (bash built-in efficiency)
-   echo "${action_with_prefix#*_}"
-   ```
-
-#### Critical Runtime Error and Fix
-
-**Problem**: After initial lib fixes, system failed with "Failed to parse configuration. No actions enabled in configuration."
-
-**Root Cause**: My mapfile conversion broke array handling in `lib/parse_config.sh`:
-- Used `local local_actions` instead of `declare -a local_actions` for array
-- `get_actions_array()` was outputting space-separated string but mapfile expected newline-separated input
-
-**Fix Applied**:
-```bash
-# Before (broken)
-local local_actions=($(get_actions_array))
-
-# After (working)
-declare -a local_actions
-mapfile -t local_actions < <(get_actions_array)
-
-# Also fixed get_actions_array() to output newline-separated values
-get_actions_array() {
-    printf '%s\n' "${ALL_ACTIONS[@]}"  # Not echo with spaces
-}
-```
-
-#### Files Modified and Specific Changes
-
-1. **siteferry.sh** (6 fixes)
-   - Fixed `PIPELINE_START_TIME`, `enabled_actions`, and other variable declarations
-   - Converted array assignments to mapfile patterns
-
-2. **lib/common.sh** (5 fixes) 
-   - Fixed `actions_dir`, `script_dir` variable declarations
-   - Converted sed usage to parameter expansion
-   - Added shellcheck directives for dynamic sourcing
-
-3. **lib/parse_config.sh** (3 fixes + critical runtime fix)
-   - **CRITICAL**: Fixed array declaration and mapfile usage causing config parsing failure
-   - Modified `get_actions_array()` to output newline-separated for mapfile compatibility
-
-4. **actions/01_preflight_checks.sh** (1 fix)
-   - Fixed `error_msg` variable declaration
-
-5. **actions/08_cleanup_temp.sh** (2 fixes)
-   - Fixed `files_list` and `failed_list` variable declarations
-
-6. **actions/99_finalize_results.sh** (3 fixes)
-   - Fixed `end_time`, `display_name` variable declarations
-   - Converted `numbered_actions` array to mapfile usage
-
-7. **Other action files** - Already compliant, no changes needed
-
-#### Key Lessons Learned
-
-1. **Array Handling Complexity**: `mapfile` requires newline-separated input, not space-separated strings
-2. **Variable Declaration Types**: Arrays need `declare -a` not just `local` when using mapfile
-3. **Function Output Formats**: Functions feeding mapfile must output one item per line
-4. **Testing Critical**: Configuration parsing error revealed the importance of testing after each change
-5. **User Warning Heeded**: Successfully avoided duplicate variable declarations (e.g., `local ddev_version`)
-
-#### Technical Impact
-
-- **Code Quality**: Improved to shellcheck-compliant standards
-- **Error Handling**: Better error detection through proper variable declaration patterns  
-- **Maintainability**: More robust array handling and parameter expansion usage
-- **Performance**: Reduced external command calls (sed → parameter expansion)
-- **Standards Compliance**: Follows shellcheck.wiki best practices throughout
-
-#### Validation Status
-
-User specifically requested **not to run shellcheck verification on actions files yet**, leaving final validation pending. All fixes applied using proven patterns from earlier successful remediations.
+### Path Management
+- Configurable via `TEMP_DIR` environment variable
+- Centralized constants in `lib/common.sh`
+- Site-specific paths for multi-site isolation
 
 ---
-*Analysis updated on: 2025-09-06*  
-*Total files analyzed: 15 (project structure expanded)*  
-*Lines of code: ~1,159 (maintained during refactoring)*  
-*Real implementation progress: 50% (3/6 actions complete)*  
-*Code quality: Shellcheck-compliant across entire codebase*
-- Remember the Unix Philosophy. This is the Unix philosophy: Write programs that do one thing and do it well. Write programs to work together. Write programs to handle text streams, because that is a universal interface.
-- IMPORTANT! THIS IS A BRAND NEW PROJECT. BACKWARDS COMPATIBILITY IS **NEVER** AN ISSUE. DON'T BOTHER KEEPING OLD FUNCTIONS OR FORMATS.
-- IMPORTANT! Do not attempt to write tests for networking (SSH, scp) functions / scripts.
-- When testing siteferry.sh, always pass --no-select to avoid the dialog window
-- Make git commit messages more succinct.
-- Please keep commit messages to one line, separated by semi-colons
-- ALWAYS test code changes in the shell first before editing files to verify they work correctly
-- IMPORTANT! Never pass --no-verify to git commit. Fix the bats tests instead.
+*Context updated: 2025-09-06*  
+*Multi-site architecture: Complete*  
+*Implementation progress: 50% (3/6 actions real)*  
+*Test coverage: 136/136 tests passing*
