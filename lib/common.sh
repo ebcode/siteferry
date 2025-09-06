@@ -14,6 +14,7 @@ source "$SOURCE_DIR/string_utils.sh"
 source "$SOURCE_DIR/file_utils.sh"
 source "$SOURCE_DIR/config_utils.sh"
 source "$SOURCE_DIR/ssh_utils.sh"
+source "$SOURCE_DIR/ddev_utils.sh"
 
 # Pipeline state management
 set_status() {

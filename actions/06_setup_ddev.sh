@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Setup DDEV - Auto-generate DDEV configuration from site config
+# Setup DDEV - Intelligent DDEV configuration with auto-detection
 # Sets: setup_ddev_status, setup_ddev_message
 
 set -euo pipefail
@@ -24,7 +24,7 @@ main() {
         return 0
     fi
     
-    msg_info "Setting up DDEV project..."
+    msg_info "Setting up DDEV project with intelligent configuration..."
     
     # Load site configuration
     if ! load_site_config; then
@@ -33,27 +33,29 @@ main() {
         return 1
     fi
     
-    # Check if required DDEV configuration variables are set
-    if [[ -z "${PROJECT_TYPE:-}" ]]; then
-        set_status "$ACTION" "error" "PROJECT_TYPE not configured in site config"
-        msg_error "PROJECT_TYPE must be set in site configuration"
-        pass_state
-        return 1
+    # Verify DDEV environment
+    msg_info "Verifying DDEV environment..."
+    local ddev_status
+    if ddev_status=$(run_ddev_diagnostics); then
+        msg_success "${ddev_status#*:}"
+    else
+        local status_type="${ddev_status%%:*}"
+        local status_msg="${ddev_status#*:}"
+        
+        if [[ "$status_type" == "partial" ]]; then
+            msg_warn "$status_msg"
+            msg_warn "DDEV configuration will be created but may not start"
+        else
+            msg_error "$status_msg"
+            set_status "$ACTION" "error" "DDEV environment verification failed: $status_msg"
+            pass_state
+            return 1
+        fi
     fi
     
-    if [[ -z "${DDEV_PROJECT_NAME:-}" ]]; then
-        set_status "$ACTION" "error" "DDEV_PROJECT_NAME not configured in site config"
-        msg_error "DDEV_PROJECT_NAME must be set in site configuration"
-        pass_state
-        return 1
-    fi
-    
-    # Set defaults for optional variables
-    local php_version="${DDEV_PHP_VERSION:-8.2}"
+    # Get site local path
     local site_local_path
     site_local_path=$(get_site_local_path)
-    
-    msg_info "Configuring DDEV project: ${DDEV_PROJECT_NAME} (${PROJECT_TYPE}, PHP ${php_version})"
     
     # Ensure site directory exists
     if [[ ! -d "$site_local_path" ]]; then
@@ -66,115 +68,196 @@ main() {
     fi
     
     # Change to site directory for DDEV operations
+    local original_dir="$PWD"
     if ! cd "$site_local_path"; then
         set_status "$ACTION" "error" "Failed to change to site directory: $site_local_path"
         pass_state
         return 1
     fi
     
-    # Handle existing DDEV projects
-    if [[ -d ".ddev" ]]; then
-        msg_warn "Existing .ddev directory found"
-        
-        # Check if existing project name matches
-        if [[ -f ".ddev/config.yaml" ]]; then
-            local existing_name
-            existing_name=$(grep "^name:" .ddev/config.yaml | cut -d: -f2 | tr -d ' "' || echo "")
+    # Check for existing DDEV configuration
+    local existing_config
+    existing_config=$(check_ddev_project_exists .)
+    local existing_status="${existing_config%%:*}"
+    local existing_name="${existing_config#*:}"
+    
+    if [[ "$existing_status" == "exists" ]]; then
+        # Validate existing configuration against site config
+        if [[ -n "${DDEV_PROJECT_NAME:-}" ]] && [[ "$existing_name" != "$DDEV_PROJECT_NAME" ]]; then
+            msg_warn "Existing DDEV project name '$existing_name' differs from configured '${DDEV_PROJECT_NAME}'"
             
-            if [[ "$existing_name" == "$DDEV_PROJECT_NAME" ]]; then
-                msg_info "Existing DDEV project matches configuration (${DDEV_PROJECT_NAME})"
-                set_status "$ACTION" "success" "DDEV project already configured correctly"
-                pass_state
-                return 0
+            # Backup existing configuration
+            local backup_result
+            backup_result=$(backup_ddev_config .)
+            local backup_status="${backup_result%%:*}"
+            
+            if [[ "$backup_status" == "success" ]]; then
+                msg_info "Backed up existing configuration to: ${backup_result#*:}"
             else
-                msg_warn "Existing project name '$existing_name' differs from configured '${DDEV_PROJECT_NAME}'"
-                msg_warn "Backing up existing .ddev directory"
+                msg_error "Failed to backup existing DDEV configuration"
+                cd "$original_dir"
+                set_status "$ACTION" "error" "Cannot proceed without backing up existing config"
+                pass_state
+                return 1
+            fi
+        else
+            msg_info "Existing DDEV configuration found for project: $existing_name"
+            
+            # Check if project is already running
+            local project_status
+            if project_status=$(get_ddev_project_status .); then
+                local status_type="${project_status%%:*}"
+                local status_info="${project_status#*:}"
                 
-                local backup_dir
-                backup_dir=".ddev.backup.$(date +%Y%m%d_%H%M%S)"
-                if ! mv .ddev "$backup_dir"; then
-                    set_status "$ACTION" "error" "Failed to backup existing .ddev directory"
+                if [[ "$status_type" == "running" ]]; then
+                    msg_success "DDEV project already running: $status_info"
+                    cd "$original_dir"
+                    set_status "$ACTION" "success" "DDEV project already configured and running: $status_info"
                     pass_state
-                    return 1
+                    return 0
                 fi
-                msg_info "Existing .ddev backed up to $backup_dir"
             fi
         fi
     fi
     
-    # Create .ddev directory
-    if ! mkdir -p .ddev; then
-        set_status "$ACTION" "error" "Failed to create .ddev directory"
-        pass_state
-        return 1
+    # Intelligent project detection
+    msg_info "Analyzing project structure for optimal DDEV configuration..."
+    local detected_type
+    detected_type=$(detect_project_type .)
+    local project_type="${detected_type%%:*}"
+    local type_details="${detected_type#*:}"
+    msg_info "$type_details"
+    
+    # Use configured project type if available, otherwise use detection
+    local final_project_type="${PROJECT_TYPE:-$project_type}"
+    
+    # Get project name from config or default to site name
+    local project_name="${DDEV_PROJECT_NAME:-$(get_current_site_name)}"
+    
+    # Detect docroot
+    local docroot
+    docroot=$(detect_docroot .)
+    if [[ -n "$docroot" ]]; then
+        msg_info "Detected docroot: $docroot"
     fi
     
-    # Generate .ddev/config.yaml
-    msg_info "Generating .ddev/config.yaml"
+    # Get version settings
+    local php_version="${DDEV_PHP_VERSION:-8.2}"
+    local nodejs_version="${DDEV_NODEJS_VERSION:-$(detect_nodejs_version .)}"
     
-    cat > .ddev/config.yaml << EOF
-name: ${DDEV_PROJECT_NAME}
-type: ${PROJECT_TYPE}
-docroot: ""
-php_version: "${php_version}"
-webserver_type: nginx-fpm
-router_http_port: "80"
-router_https_port: "443"
-xdebug_enabled: false
-additional_hostnames: []
-additional_fqdns: []
-database:
-  type: mariadb
-  version: "10.4"
-nfs_mount_enabled: false
-mutagen_enabled: false
-use_dns_when_possible: true
-composer_version: "2"
+    # Build intelligent DDEV config command
+    local ddev_cmd
+    ddev_cmd=$(build_ddev_config_command "$final_project_type" "$project_name" "$php_version" "$nodejs_version" "$docroot")
+    
+    msg_info "Configuring DDEV project: $project_name"
+    msg_info "Project type: $final_project_type"
+    if [[ "$final_project_type" == php* ]] || [[ "$final_project_type" == *wordpress* ]] || [[ "$final_project_type" == *drupal* ]] || [[ "$final_project_type" == *laravel* ]] || [[ "$final_project_type" == *symfony* ]]; then
+        msg_info "PHP version: $php_version"
+    fi
+    if [[ "$final_project_type" == nodejs* ]]; then
+        msg_info "Node.js version: $nodejs_version"
+    fi
+    if [[ -n "$docroot" ]]; then
+        msg_info "Document root: $docroot"
+    fi
+    
+    # Execute DDEV configuration
+    msg_info "Running: $ddev_cmd"
+    if eval "$ddev_cmd"; then
+        msg_success "DDEV configuration completed"
+    else
+        # If auto-config fails, try fallback manual configuration
+        msg_warn "Auto-configuration failed, attempting manual configuration..."
+        
+        # Create basic configuration manually
+        if ! mkdir -p .ddev; then
+            cd "$original_dir"
+            set_status "$ACTION" "error" "Failed to create .ddev directory"
+            pass_state
+            return 1
+        fi
+        
+        # Generate basic config.yaml
+        cat > .ddev/config.yaml << EOF
+name: ${project_name}
+type: ${final_project_type}
+docroot: "${docroot}"
+EOF
+        
+        # Add version-specific settings
+        if [[ "$final_project_type" == php* ]] || [[ "$final_project_type" == *wordpress* ]] || [[ "$final_project_type" == *drupal* ]] || [[ "$final_project_type" == *laravel* ]] || [[ "$final_project_type" == *symfony* ]]; then
+            echo "php_version: \"${php_version}\"" >> .ddev/config.yaml
+        fi
+        
+        if [[ "$final_project_type" == nodejs* ]]; then
+            echo "nodejs_version: \"${nodejs_version}\"" >> .ddev/config.yaml
+        fi
+        
+        # Add SiteFerry metadata
+        cat >> .ddev/config.yaml << EOF
 
 # Auto-generated by SiteFerry
 # Generated on: $(date)
 # Site: $(get_current_site_name)
 EOF
-    
-    if [[ ! -f ".ddev/config.yaml" ]]; then
-        set_status "$ACTION" "error" "Failed to create .ddev/config.yaml"
-        pass_state
-        return 1
+        
+        if [[ -f ".ddev/config.yaml" ]]; then
+            msg_success "Manual DDEV configuration created"
+        else
+            cd "$original_dir"
+            set_status "$ACTION" "error" "Failed to create DDEV configuration"
+            pass_state
+            return 1
+        fi
     fi
     
-    # Initialize DDEV project
-    msg_info "Initializing DDEV project"
-    
-    if command -v ddev >/dev/null 2>&1; then
-        # DDEV is installed, attempt to start the project
-        if ddev start; then
-            local project_url
-            project_url=$(ddev describe | grep "Primary URL" | cut -d: -f2- | tr -d ' ' || echo "")
+    # Attempt to start the DDEV project
+    msg_info "Starting DDEV project..."
+    if ddev start; then
+        # Get project status and URL
+        local project_status
+        if project_status=$(get_ddev_project_status .); then
+            local status_type="${project_status%%:*}"
+            local status_info="${project_status#*:}"
             
-            if [[ -n "$project_url" ]]; then
-                set_status "$ACTION" "success" "DDEV project configured and started: $project_url"
+            if [[ "$status_type" == "running" ]] && [[ "$status_info" != "URL not available" ]]; then
                 msg_success "DDEV project started successfully"
-                msg_info "Project URL: $project_url"
+                msg_info "Project URL: $status_info"
+                cd "$original_dir"
+                set_status "$ACTION" "success" "DDEV project configured and started: $status_info"
+                pass_state
+                return 0
             else
-                set_status "$ACTION" "success" "DDEV project configured and started"
                 msg_success "DDEV project started successfully"
+                cd "$original_dir"
+                set_status "$ACTION" "success" "DDEV project configured and started"
+                pass_state
+                return 0
             fi
         else
-            # DDEV start failed, but config was created
-            set_status "$ACTION" "partial" "DDEV configured but failed to start (run 'ddev start' manually)"
-            msg_warn "DDEV configuration created but project failed to start"
-            msg_warn "You may need to run 'ddev start' manually from: $site_local_path"
+            msg_success "DDEV project started successfully"
+            cd "$original_dir"
+            set_status "$ACTION" "success" "DDEV project configured and started"
+            pass_state
+            return 0
         fi
     else
-        # DDEV not installed
-        set_status "$ACTION" "partial" "DDEV configured but DDEV not installed"
-        msg_warn "DDEV configuration created successfully"
-        msg_warn "Install DDEV from https://ddev.readthedocs.io/ to start the project"
-        msg_info "Configuration saved to: ${site_local_path}.ddev/config.yaml"
+        # DDEV start failed - provide helpful diagnostics
+        msg_warn "DDEV project configured but failed to start"
+        msg_info "Configuration saved to: ${site_local_path}/.ddev/config.yaml"
+        msg_info "You can manually start the project with: cd '$site_local_path' && ddev start"
+        
+        # Check if it's a Docker issue
+        if ! ddev debug dockercheck >/dev/null 2>&1; then
+            msg_warn "Docker may not be running or properly configured"
+            msg_info "Try: docker --version && docker ps"
+        fi
+        
+        cd "$original_dir"
+        set_status "$ACTION" "partial" "DDEV configured but failed to start (run 'ddev start' manually from $site_local_path)"
+        pass_state
+        return 0
     fi
-    
-    # Pass state to next stage
-    pass_state
 }
 
 main
