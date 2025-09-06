@@ -113,9 +113,9 @@ assert_output_equals() {
 # Assert command succeeded (exit code 0)
 assert_success() {
     if [[ "$status" != "0" ]]; then
-        echo "Expected command to succeed (exit 0), got exit $status" >&2
-        echo "Output: $output" >&2
-        return 1
+		echo "Expected command to succeed (exit 0), got exit $status" >&2
+		echo "Output: $output" >&2
+		return 1
     fi
 }
 

@@ -1,5 +1,8 @@
 
 config/*
+internal-config/*
+sites-config/*
 PLAN.md
 shellcheck.wiki
 tmp/*
+*.geany

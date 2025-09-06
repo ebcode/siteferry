@@ -19,12 +19,12 @@ export SITE_CONFIG_FILE="${SITE_CONFIG_FILE:-$(get_site_config_path "$SITE_NAME"
 
 # Dynamic action discovery
 get_actions() {
-    get_all_numbered_scripts
+  get_all_numbered_scripts
 }
 
 get_action_label() {
-    local action="$1"
-    get_display_name "$action"
+  local action="$1"
+  get_display_name "$action"
 }
 
 # Global variables for checkbox states
@@ -137,62 +137,6 @@ show_action_menu() {
     fi
 }
 
-# Function to simulate executing selected actions
-simulate_actions() {
-    local selected_actions=("$@")
-    
-    echo ""
-    echo "=== Executing Selected Actions ==="
-    echo ""
-    
-    if [[ ${#selected_actions[@]} -eq 0 ]]; then
-        echo "No actions selected. Nothing to do."
-        return 0
-    fi
-    
-    for selected_action in "${selected_actions[@]}"; do
-        local action_label
-        action_label=$(get_display_name "$selected_action")
-        echo "▶ Executing: $action_label"
-        case "$selected_action" in
-            "preflight_checks")
-                echo "  • Checking DDEV installation..."
-                echo "  • Verifying disk space..."
-                echo "  • Testing SSH connection..."
-                ;;
-            "fetch_db_backup")
-                echo "  • Connecting to backup server..."
-                echo "  • Downloading database dump..."
-                echo "  • Verifying download integrity..."
-                ;;
-            "fetch_files_backup")
-                echo "  • Downloading files archive..."
-                echo "  • Checking archive integrity..."
-                ;;
-            "import_database")
-                echo "  • Starting DDEV database service..."
-                echo "  • Importing SQL dump..."
-                echo "  • Verifying database import..."
-                ;;
-            "import_files")
-                echo "  • Extracting files archive..."
-                echo "  • Setting proper permissions..."
-                ;;
-            "cleanup_temp")
-                echo "  • Removing temporary files..."
-                echo "  • Cleaning up downloads..."
-                ;;
-        esac
-        echo "  ✓ $action_label completed"
-        echo ""
-        
-        # Add small delay for realism
-        sleep 0.5
-    done
-    
-    echo "=== All Selected Actions Completed ==="
-}
-
 # Main function
 main() {
     # Check if dialog is available
@@ -229,9 +173,6 @@ main() {
         # Save selections
         save_selections "${selected_actions[@]}"
         msg_user_info ""
-        
-        # Simulate execution
-        simulate_actions "${selected_actions[@]}"
         
     else
         # User cancelled, clear dialog

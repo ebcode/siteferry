@@ -287,3 +287,17 @@ backup_ddev_config() {
         return 1
     fi
 }
+
+
+# Check user is in docker group
+user_can_docker() {
+	local user_groups
+	user_groups="$(groups)"
+	
+	if [[ "$user_groups" =~ docker ]];then	  
+	  echo "user can docker"
+	  return 0
+	fi
+	echo "User may need to be added to docker group"
+	return 1
+}

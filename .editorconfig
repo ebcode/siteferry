@@ -1,0 +1,19 @@
+# EditorConfig is awesome: https://editorconfig.org
+
+# top-most EditorConfig file
+root = true
+
+# Unix-style newlines with a newline ending every file
+[*]
+end_of_line = lf
+insert_final_newline = true
+
+# Matches multiple files with brace expansion notation
+# Set default charset
+[*.{js,py,sh,php}]
+charset = utf-8
+
+# 2 space indentation
+[*.{py,sh,php,js,css,html,htm,yml,json,rb,logo,go,c,cpp,pl,lua,xml,xslt,sass,scss,txt,md,bats}]
+indent_style = space
+indent_size = 2
