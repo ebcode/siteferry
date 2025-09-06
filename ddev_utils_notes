@@ -1,0 +1,42 @@
+Separation of Concerns — Avoid Hardcoding Project Types
+
+Right now, detect_project_type embeds knowledge about WordPress, Drupal, Laravel, Symfony, etc. That means this script must evolve in step with DDEV. Instead, we could delegate project detection to DDEV itself, which already supports ddev config --list and ddev describe.
+
+Conceptual Cleaner Interface:
+
+Provide thin wrappers around ddev rather than replicating its logic.
+
+Let DDEV tell us supported project types.
+
+Minimal Example:
+
+list_ddev_project_types() {
+    # Ask DDEV what project types it supports
+    ddev config --list | awk '/Available project types/{flag=1;next}/^$/{flag=0}flag'
+}
+
+
+Detect project type via DDEV instead of heuristics:
+
+detect_project_type() {
+    local project_dir="${1:-.}"
+    (
+        cd "$project_dir" || exit 1
+        ddev describe --json 2>/dev/null | jq -r '.raw.projecttype'
+    )
+}
+
+
+Now the script doesn’t need to know about Next.js, Drupal 10, Drupal 11, etc. It defers to DDEV.
+
+Suggested Cleaner Structure
+
+Instead of one big ddev_utils.sh, think of it as three focused areas:
+
+environment_utils.sh → verifies Docker/DDEV availability
+
+project_utils.sh → wraps ddev describe, ddev config, ddev list
+
+backup_utils.sh → handles .ddev config backup/restore
+
+This makes each file’s purpose narrow, easier to test, and easier to extend.

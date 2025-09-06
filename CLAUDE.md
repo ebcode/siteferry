@@ -144,3 +144,6 @@ work together. Handle text streams as universal interface.
 *Multi-site architecture: Complete*  
 *Implementation progress: 50% (3/6 actions real)*  
 *Test coverage: 136/136 tests passing*
+- IMPORTANT! DON'T ASSUME A PARTICULAR DATABASE. A site could be using mysql, mariadb, postgres, or something else.
+- check the version of ddev with "ddev -v", not "ddev version"
+- if you want to use bash timeout for ddev operations, give it 150 seconds
