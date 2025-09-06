@@ -9,7 +9,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/messaging.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
-ACTION=$(get_current_action_name)
+ACTION=$(get_current_script_name)
 
 main() {
     # Get state from previous pipeline stage
@@ -34,14 +34,14 @@ main() {
     if load_site_config 2>/dev/null; then
         # Use configuration to determine specific backup files
         local temp_files=(
-            "/tmp/${REMOTE_DB_BACKUP:-database_backup.sql}"
-            "/tmp/${REMOTE_FILES_BACKUP:-files_backup.tar}"
+            "${DB_BACKUP_PATH}/${REMOTE_DB_BACKUP:-database_backup.sql}"
+            "${FILES_BACKUP_PATH}/${REMOTE_FILES_BACKUP:-files_backup.tar}"
         )
     else
         # Fallback to common backup file patterns
         local temp_files=(
-            "/tmp/database_backup.sql"
-            "/tmp/files_backup.tar"
+            "${DB_BACKUP_PATH}/database_backup.sql"
+            "${FILES_BACKUP_PATH}/files_backup.tar"
         )
     fi
     

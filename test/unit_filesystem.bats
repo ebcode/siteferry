@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 # Tests for lib/common.sh filesystem operation functions  
-# Tests: get_all_actions(), validate_action_files(), get_current_action_name(), load_site_config()
+# Tests: get_all_numbered_scripts(), validate_numbered_script_files(), get_current_script_name(), load_site_config()
 
 load helper_common
 
@@ -25,15 +25,15 @@ teardown() {
     teardown_test_env
 }
 
-# Tests for get_all_actions() function
+# Tests for get_all_numbered_scripts() function
 
-@test "get_all_actions finds valid numbered action files" {
+@test "get_all_numbered_scripts finds valid numbered action files" {
     # Create valid action files
     touch "$TEST_ACTIONS_DIR/01_first_action.sh"
     touch "$TEST_ACTIONS_DIR/02_second_action.sh"
     touch "$TEST_ACTIONS_DIR/10_tenth_action.sh"
     
-    run get_all_actions
+    run get_all_numbered_scripts
     assert_success
     
     # Should find all three actions in sorted order
@@ -42,11 +42,11 @@ teardown() {
     [[ "${lines[2]}" == "10_tenth_action" ]]
 }
 
-@test "get_all_actions excludes finalize_results" {
+@test "get_all_numbered_scripts excludes finalize_results" {
     touch "$TEST_ACTIONS_DIR/01_action.sh"
     touch "$TEST_ACTIONS_DIR/99_finalize_results.sh"
     
-    run get_all_actions
+    run get_all_numbered_scripts
     assert_success
     
     # Should only find the non-finalize action
@@ -54,12 +54,12 @@ teardown() {
     [[ "${lines[0]}" == "01_action" ]]
 }
 
-@test "get_all_actions ignores non-numbered files" {
+@test "get_all_numbered_scripts ignores non-numbered files" {
     touch "$TEST_ACTIONS_DIR/01_valid_action.sh"
     touch "$TEST_ACTIONS_DIR/invalid_action.sh"
     touch "$TEST_ACTIONS_DIR/helper_script.sh" 
     
-    run get_all_actions
+    run get_all_numbered_scripts
     assert_success
     
     # Should only find numbered action
@@ -67,12 +67,12 @@ teardown() {
     [[ "${lines[0]}" == "01_valid_action" ]]
 }
 
-@test "get_all_actions ignores non-shell files" {
+@test "get_all_numbered_scripts ignores non-shell files" {
     touch "$TEST_ACTIONS_DIR/01_action.sh"
     touch "$TEST_ACTIONS_DIR/02_action.txt"
     touch "$TEST_ACTIONS_DIR/03_action"
     
-    run get_all_actions
+    run get_all_numbered_scripts
     assert_success
     
     # Should only find .sh file
@@ -80,13 +80,13 @@ teardown() {
     [[ "${lines[0]}" == "01_action" ]]
 }
 
-@test "get_all_actions returns sorted results" {
+@test "get_all_numbered_scripts returns sorted results" {
     # Create files in non-sorted order
     touch "$TEST_ACTIONS_DIR/10_last.sh"
     touch "$TEST_ACTIONS_DIR/02_middle.sh"
     touch "$TEST_ACTIONS_DIR/01_first.sh"
     
-    run get_all_actions
+    run get_all_numbered_scripts
     assert_success
     
     # Should be in sorted order
@@ -95,14 +95,14 @@ teardown() {
     [[ "${lines[2]}" == "10_last" ]]
 }
 
-@test "get_all_actions handles empty actions directory" {
+@test "get_all_numbered_scripts handles empty actions directory" {
     # Empty directory should return no results
-    run get_all_actions
+    run get_all_numbered_scripts
     assert_success
     [[ "${#lines[@]}" -eq 0 ]]
 }
 
-@test "get_all_actions works from lib subdirectory context" {
+@test "get_all_numbered_scripts works from lib subdirectory context" {
     # Create lib directory structure to test path resolution
     mkdir -p "$TEST_TEMP_DIR/lib"
     touch "$TEST_ACTIONS_DIR/01_test_action.sh"
@@ -111,90 +111,90 @@ teardown() {
     cd "$TEST_TEMP_DIR/lib"
     export SCRIPT_DIR="$TEST_TEMP_DIR/lib"
     
-    run get_all_actions
+    run get_all_numbered_scripts
     assert_success
     [[ "${lines[0]}" == "01_test_action" ]]
 }
 
-# Tests for validate_action_files() function
+# Tests for validate_numbered_script_files() function
 
-@test "validate_action_files passes with valid action files" {
+@test "validate_numbered_script_files passes with valid action files" {
     touch "$TEST_ACTIONS_DIR/01_preflight_checks.sh"
     touch "$TEST_ACTIONS_DIR/02_backup_database.sh"
     touch "$TEST_ACTIONS_DIR/99_finalize_results.sh"
     
-    run validate_action_files
+    run validate_numbered_script_files
     assert_success
 }
 
-@test "validate_action_files detects invalid naming pattern" {
+@test "validate_numbered_script_files detects invalid naming pattern" {
     touch "$TEST_ACTIONS_DIR/01_valid_action.sh"
     touch "$TEST_ACTIONS_DIR/invalid_naming.sh"
     
-    run validate_action_files
+    run validate_numbered_script_files
     assert_failure
 }
 
-@test "validate_action_files allows finalize_results exception" {
+@test "validate_numbered_script_files allows finalize_results exception" {
     touch "$TEST_ACTIONS_DIR/01_action.sh"
     touch "$TEST_ACTIONS_DIR/99_finalize_results.sh"
     
-    run validate_action_files
+    run validate_numbered_script_files
     assert_success
 }
 
-@test "validate_action_files handles missing actions directory" {
+@test "validate_numbered_script_files handles missing actions directory" {
     rm -rf "$TEST_ACTIONS_DIR"
     
-    run validate_action_files
+    run validate_numbered_script_files
     assert_success  # Should not fail on missing directory
 }
 
-@test "validate_action_files detects missing .sh extension" {
+@test "validate_numbered_script_files detects missing .sh extension" {
     touch "$TEST_ACTIONS_DIR/01_valid_action.sh"
     touch "$TEST_ACTIONS_DIR/02_missing_extension"
     
-    run validate_action_files
+    run validate_numbered_script_files
     # Should succeed since we only check .sh files
     assert_success
 }
 
-@test "validate_action_files detects invalid number format" {
+@test "validate_numbered_script_files detects invalid number format" {
     touch "$TEST_ACTIONS_DIR/1_single_digit.sh"  # Valid: single digit allowed
     touch "$TEST_ACTIONS_DIR/abc_no_number.sh"   # Invalid: no number
     
     # Create at least one valid file
     touch "$TEST_ACTIONS_DIR/01_valid.sh"
     
-    run validate_action_files
+    run validate_numbered_script_files
     assert_failure  # Should still fail due to abc_no_number.sh
 }
 
-# Tests for get_current_action_name() function
+# Tests for get_current_script_name() function
 
-@test "get_current_action_name strips prefix correctly" {
+@test "get_current_script_name strips prefix correctly" {
     # Create a mock script file to simulate BASH_SOURCE
     echo '#!/bin/bash' > "$TEST_TEMP_DIR/01_test_action.sh"
     
     # Mock the function to use our test file
-    get_current_action_name() {
+    get_current_script_name() {
         local script_name
         script_name=$(basename "$TEST_TEMP_DIR/01_test_action.sh" .sh)
-        strip_action_prefix "$script_name"
+        strip_numeric_prefix "$script_name"
     }
     
-    run get_current_action_name
+    run get_current_script_name
     assert_success
     assert_output_equals "test_action"
 }
 
-@test "get_current_action_name handles different number formats" {
-    get_current_action_name() {
+@test "get_current_script_name handles different number formats" {
+    get_current_script_name() {
         local script_name="99_finalize_results"
-        strip_action_prefix "$script_name"
+        strip_numeric_prefix "$script_name"
     }
     
-    run get_current_action_name
+    run get_current_script_name
     assert_success
     assert_output_equals "finalize_results"
 }
@@ -314,18 +314,18 @@ EOF
 
 # Integration tests
 
-@test "get_all_actions integrates with validate_action_files" {
+@test "get_all_numbered_scripts integrates with validate_numbered_script_files" {
     # Create mix of valid and invalid files
     touch "$TEST_ACTIONS_DIR/01_valid.sh"
     touch "$TEST_ACTIONS_DIR/02_also_valid.sh"
     touch "$TEST_ACTIONS_DIR/invalid_file.sh"
     
-    # get_all_actions should only find valid numbered files
-    run get_all_actions
+    # get_all_numbered_scripts should only find valid numbered files
+    run get_all_numbered_scripts
     assert_success
     [[ "${#lines[@]}" -eq 2 ]]
     
-    # But validate_action_files should detect the invalid file
-    run validate_action_files
+    # But validate_numbered_script_files should detect the invalid file
+    run validate_numbered_script_files
     assert_failure
 }

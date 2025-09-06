@@ -27,8 +27,8 @@ ensure_internal_config_exists() {
         msg_debug "Creating missing config file: $CONFIG_FILE"
         local actions=()
         local action
-        for action in $(get_all_actions); do
-            actions+=("$(get_action_base_name "$action")")
+        for action in $(get_all_numbered_scripts); do
+            actions+=("$(strip_numeric_prefix "$action")")
         done
         
         # Create config directory if it doesn't exist
@@ -69,9 +69,9 @@ get_enabled_actions() {
 map_action_to_filename() {
     local base_name="$1"
     local actions
-    mapfile -t actions < <(get_all_actions)
+    mapfile -t actions < <(get_all_numbered_scripts)
     for action in "${actions[@]}"; do
-        if [[ "$(get_action_base_name "$action")" == "$base_name" ]]; then
+        if [[ "$(strip_numeric_prefix "$action")" == "$base_name" ]]; then
             echo "$action"
             return 0
         fi

@@ -25,9 +25,9 @@ export SITE_CONFIG_FILE
 # Get all actions dynamically
 get_actions_array() {
     local actions
-    mapfile -t actions < <(get_all_actions)
+    mapfile -t actions < <(get_all_numbered_scripts)
     for action in "${actions[@]}"; do
-        get_action_base_name "$action"
+        strip_numeric_prefix "$action"
     done
 }
 

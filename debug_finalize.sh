@@ -24,11 +24,12 @@ main() {
     
     echo ""
     echo "=== DEBUG: Actions discovered ==="
-    local numbered_actions=($(get_all_actions))
+    local numbered_actions
+    mapfile -t numbered_actions < <(get_all_numbered_scripts)
     local actions=()
     # Convert numbered actions to base names for status lookup
     for action in "${numbered_actions[@]}"; do
-        actions+=("$(get_action_base_name "$action")")
+        actions+=("$(strip_numeric_prefix "$action")")
     done
     printf "Actions: %s\n" "${actions[*]}"
     

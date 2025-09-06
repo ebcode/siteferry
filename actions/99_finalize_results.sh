@@ -47,13 +47,13 @@ main() {
     msg_user_info ""
     
     local numbered_actions
-    mapfile -t numbered_actions < <(get_all_actions)
+    mapfile -t numbered_actions < <(get_all_numbered_scripts)
     msg_debug "Numbered actions found: ${numbered_actions[*]}"
     
     local actions=()
     # Convert numbered actions to base names for status lookup
     for action in "${numbered_actions[@]}"; do
-        actions+=("$(get_action_base_name "$action")")
+        actions+=("$(strip_numeric_prefix "$action")")
     done
     msg_debug "Base action names: ${actions[*]}"
     

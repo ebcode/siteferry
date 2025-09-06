@@ -9,7 +9,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/messaging.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
-ACTION=$(get_current_action_name)
+ACTION=$(get_current_script_name)
 
 main() {
     # Get state from previous pipeline stage
@@ -44,7 +44,7 @@ main() {
     
     # Use system temp path
     local backup_file
-    backup_file="/tmp/${REMOTE_DB_BACKUP}"
+    backup_file="${DB_BACKUP_PATH}/${REMOTE_DB_BACKUP}"
     
     # Check if backup file exists
     if [[ ! -f "$backup_file" ]]; then

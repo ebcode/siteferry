@@ -9,7 +9,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/messaging.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
-ACTION=$(get_current_action_name)
+ACTION=$(get_current_script_name)
 
 main() {
     # Get state from previous pipeline stage
@@ -44,7 +44,7 @@ main() {
     
     # Use site-aware paths for extraction, but temp files in /tmp
     local backup_file
-    backup_file="/tmp/${REMOTE_FILES_BACKUP}"
+    backup_file="${FILES_BACKUP_PATH}/${REMOTE_FILES_BACKUP}"
     local sites_dir
     sites_dir="$(get_site_local_path)"
     

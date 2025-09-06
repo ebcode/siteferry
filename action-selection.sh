@@ -19,12 +19,12 @@ export SITE_CONFIG_FILE="${SITE_CONFIG_FILE:-$(get_site_config_path "$SITE_NAME"
 
 # Dynamic action discovery
 get_actions() {
-    get_all_actions
+    get_all_numbered_scripts
 }
 
 get_action_label() {
     local action="$1"
-    get_action_display_name "$action"
+    get_display_name "$action"
 }
 
 # Global variables for checkbox states
@@ -38,7 +38,7 @@ load_last_selections() {
     # Initialize all actions as checked by default
     for action in "${actions[@]}"; do
         local base_name
-        base_name=$(get_action_base_name "$action")
+        base_name=$(strip_numeric_prefix "$action")
         CHECKBOX_STATES["$base_name"]="on"
     done
     
@@ -57,7 +57,7 @@ load_last_selections() {
             mapfile -t actions < <(get_actions)
             for action in "${actions[@]}"; do
                 local base_name
-                base_name=$(get_action_base_name "$action")
+                base_name=$(strip_numeric_prefix "$action")
                 if [[ "$key" == "$base_name" ]]; then
                     if [[ "$value" == "true" ]]; then
                         CHECKBOX_STATES["$base_name"]="on"
@@ -80,7 +80,7 @@ save_selections() {
     # Reset all to false first
     for action in "${actions[@]}"; do
         local base_name
-        base_name=$(get_action_base_name "$action")
+        base_name=$(strip_numeric_prefix "$action")
         CHECKBOX_STATES["$base_name"]="false"
     done
     
@@ -96,7 +96,7 @@ save_selections() {
         echo ""
         for action in "${actions[@]}"; do
             local base_name
-            base_name=$(get_action_base_name "$action")
+            base_name=$(strip_numeric_prefix "$action")
             echo "$base_name=${CHECKBOX_STATES[$base_name]}"
         done
     } > "$CONFIG_FILE"
@@ -119,7 +119,7 @@ show_action_menu() {
     mapfile -t actions < <(get_actions)
     for action in "${actions[@]}"; do
         local base_name
-        base_name=$(get_action_base_name "$action")
+        base_name=$(strip_numeric_prefix "$action")
         local label
         label=$(get_action_label "$action")
         dialog_args+=("$base_name" "$label" "${CHECKBOX_STATES[$base_name]}")
@@ -152,7 +152,7 @@ simulate_actions() {
     
     for selected_action in "${selected_actions[@]}"; do
         local action_label
-        action_label=$(get_action_display_name "$selected_action")
+        action_label=$(get_display_name "$selected_action")
         echo "▶ Executing: $action_label"
         case "$selected_action" in
             "preflight_checks")
@@ -220,7 +220,7 @@ main() {
         else
             for action in "${selected_actions[@]}"; do
                 local label
-                label=$(get_action_display_name "$action")
+                label=$(get_display_name "$action")
                 msg_user_info "  • $label"
             done
         fi
