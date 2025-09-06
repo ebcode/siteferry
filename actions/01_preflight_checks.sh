@@ -122,39 +122,35 @@ main() {
     
     # Validate configuration files
     msg_info "Validating configuration files..."
-    local config_dir="$script_dir/config"
+    local site_config_path
+    site_config_path=$(get_site_config_path)
     
-    if [[ ! -d "$config_dir" ]]; then
-        errors+=("Configuration directory not found at: $config_dir")
+    if [[ ! -f "$site_config_path" ]]; then
+        errors+=("Site configuration not found at: $site_config_path")
+    elif [[ ! -r "$site_config_path" ]]; then
+        errors+=("Site configuration exists but is not readable - check file permissions: $site_config_path")
     else
-        # Check that backup.config exists and is readable
-        if [[ ! -f "$config_dir/backup.config" ]]; then
-            errors+=("backup.config not found - create $config_dir/backup.config with your server settings")
-        elif [[ ! -r "$config_dir/backup.config" ]]; then
-            errors+=("backup.config exists but is not readable - check file permissions")
-        else
-            # Validate backup.config contents
-            if load_backup_config 2>/dev/null; then
-                local config_errors=()
-                [[ -z "${REMOTE_HOST:-}" ]] && config_errors+=("REMOTE_HOST not set in backup.config")
-                [[ -z "${REMOTE_USER:-}" ]] && config_errors+=("REMOTE_USER not set in backup.config")
-                [[ -z "${REMOTE_PORT:-}" ]] && config_errors+=("REMOTE_PORT not set in backup.config")
-                [[ -z "${REMOTE_PATH:-}" ]] && config_errors+=("REMOTE_PATH not set in backup.config")
-                
-                if [[ ${#config_errors[@]} -gt 0 ]]; then
-                    local config_error_msg
-                    config_error_msg=$(IFS=', '; echo "${config_errors[*]}")
-                    errors+=("backup.config validation failed: $config_error_msg")
-                fi
-            else
-                errors+=("backup.config has syntax errors - check for valid bash variable assignments")
+        # Validate site configuration contents
+        if load_site_config 2>/dev/null; then
+            local config_errors=()
+            [[ -z "${REMOTE_HOST:-}" ]] && config_errors+=("REMOTE_HOST not set in site config")
+            [[ -z "${REMOTE_USER:-}" ]] && config_errors+=("REMOTE_USER not set in site config")
+            [[ -z "${REMOTE_PORT:-}" ]] && config_errors+=("REMOTE_PORT not set in site config")
+            [[ -z "${REMOTE_PATH:-}" ]] && config_errors+=("REMOTE_PATH not set in site config")
+            
+            if [[ ${#config_errors[@]} -gt 0 ]]; then
+                local config_error_msg
+                config_error_msg=$(IFS=', '; echo "${config_errors[*]}")
+                errors+=("Site configuration validation failed: $config_error_msg")
             fi
+        else
+            errors+=("Site configuration has syntax errors - check for valid bash variable assignments")
         fi
     fi
     
     # Test SSH connectivity to backup server (non-blocking)
     msg_info "Testing SSH connectivity to backup server..."
-    if load_backup_config 2>/dev/null; then
+    if load_site_config 2>/dev/null; then
         msg_debug "Attempting SSH connection to ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PORT}"
         
         # Use the robust SSH connectivity test function
