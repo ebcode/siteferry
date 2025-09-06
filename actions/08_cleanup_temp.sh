@@ -6,10 +6,9 @@
 
 set -euo pipefail
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/messaging.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
-ACTION=$(get_current_script_name)
+action=$(get_current_script_name)
 
 main() {
   # Get state from previous pipeline stage
@@ -19,8 +18,8 @@ main() {
   fi
   
   # Check if this action is enabled
-  if ! is_enabled "$ACTION"; then
-    set_status "$ACTION" "skipped" "Disabled in configuration"
+  if ! is_enabled "$action"; then
+    set_status "$action" "skipped" "Disabled in configuration"
     pass_state
     return 0
   fi
@@ -62,16 +61,18 @@ main() {
   if [[ ${#failed_cleanups[@]} -eq 0 ]]; then
     if [[ ${#cleaned_files[@]} -gt 0 ]]; then
       local files_list
-      files_list=$(IFS=', '; echo "${cleaned_files[*]}")
-      set_status "$ACTION" "success" "Cleaned up ${#cleaned_files[@]} files: $files_list"
+      local IFS=', '
+      files_list="${cleaned_files[*]}"
+      set_status "$action" "success" "Cleaned up ${#cleaned_files[@]} files: $files_list"
     else
-      set_status "$ACTION" "success" "No temporary files found to clean up"
+      set_status "$action" "success" "No temporary files found to clean up"
     fi
     msg_success "Cleanup completed successfully"
   else
     local failed_list
-    failed_list=$(IFS=', '; echo "${failed_cleanups[*]}")
-    set_status "$ACTION" "error" "Failed to clean up ${#failed_cleanups[@]} files: $failed_list"
+    local IFS=', '
+    failed_list="${failed_cleanups[*]}"
+    set_status "$action" "error" "Failed to clean up ${#failed_cleanups[@]} files: $failed_list"
     msg_error "Some files could not be cleaned up"
   fi
   

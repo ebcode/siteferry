@@ -5,6 +5,7 @@
 
 set -euo pipefail
 
+# SCRIPT_DIR can be overridden for testing (see test/unit_filesystem.bats)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source common functions first for site detection

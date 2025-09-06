@@ -10,11 +10,14 @@ declare -xr FILES_BACKUP_PATH="$TEMP_DIR"
 
 # Import focused utility modules
 SOURCE_DIR="$(dirname "${BASH_SOURCE[0]}")"
+source "$SOURCE_DIR/messaging.sh"
 source "$SOURCE_DIR/string_utils.sh"
 source "$SOURCE_DIR/file_utils.sh"
 source "$SOURCE_DIR/config_utils.sh"
 source "$SOURCE_DIR/ssh_utils.sh"
-source "$SOURCE_DIR/ddev_utils.sh"
+source "$SOURCE_DIR/ddev_env_utils.sh"
+source "$SOURCE_DIR/ddev_setup_utils.sh"
+source "$SOURCE_DIR/ddev_mgmt.sh"
 
 # Pipeline state management
 set_status() {

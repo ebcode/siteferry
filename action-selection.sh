@@ -8,6 +8,7 @@ set -euo pipefail
 # Site-aware configuration
 SITE_NAME="${SITE_NAME:-default}"
 CONFIG_FILE="${CONFIG_FILE:-internal-config/last-checked-${SITE_NAME}.config}"
+# SCRIPT_DIR can be overridden for testing (see test/unit_filesystem.bats)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source messaging system and common functions
@@ -129,7 +130,7 @@ show_action_menu() {
   local selected_actions
   if selected_actions=$(dialog "${dialog_args[@]}" 2>&1 >/dev/tty); then
     # Parse space-separated output into array
-    IFS=' ' read -r -a selected_array <<< "$selected_actions"
+    { IFS=' '; read -r -a selected_array; } <<< "$selected_actions"
     echo "${selected_array[@]}"
   else
     # User cancelled
@@ -154,7 +155,7 @@ main() {
   local selected_actions
   if selected_actions=$(show_action_menu); then
     # Parse space-separated output into array
-    IFS=' ' read -r -a selected_actions <<< "$selected_actions"
+    { IFS=' '; read -r -a selected_actions; } <<< "$selected_actions"
     # Clear screen after dialog
     clear
     

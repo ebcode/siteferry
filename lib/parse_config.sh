@@ -13,6 +13,7 @@ if [[ "$SITE_NAME" == "last-checked" ]]; then
 fi
 
 CONFIG_FILE="${1:-internal-config/last-checked-${SITE_NAME}.config}"
+# SCRIPT_DIR can be overridden for testing (see test/unit_filesystem.bats)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source common functions for dynamic action discovery

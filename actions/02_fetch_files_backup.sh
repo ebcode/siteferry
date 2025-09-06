@@ -5,10 +5,9 @@
 
 set -euo pipefail
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/messaging.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
-ACTION=$(get_current_script_name)
+action=$(get_current_script_name)
 
 main() {
   # Get state from previous pipeline stage
@@ -18,8 +17,8 @@ main() {
   fi
   
   # Check if this action is enabled
-  if ! is_enabled "$ACTION"; then
-    set_status "$ACTION" "skipped" "Disabled in configuration"
+  if ! is_enabled "$action"; then
+    set_status "$action" "skipped" "Disabled in configuration"
     pass_state
     return 0
   fi
@@ -28,7 +27,7 @@ main() {
   
   # Load site configuration
   if ! load_site_config; then
-    set_status "$ACTION" "error" "Failed to load site configuration"
+    set_status "$action" "error" "Failed to load site configuration"
     pass_state
     return 1
   fi
@@ -50,14 +49,14 @@ main() {
     local file_size
     if [[ -f "$backup_file" ]]; then
       file_size=$(du -h "$backup_file" | cut -f1)
-      set_status "$ACTION" "success" "Downloaded ${file_size} files backup to ${backup_file}"
+      set_status "$action" "success" "Downloaded ${file_size} files backup to ${backup_file}"
       msg_success "Files backup downloaded successfully (${file_size})"
     else
-      set_status "$ACTION" "error" "Download completed but backup file not found"
+      set_status "$action" "error" "Download completed but backup file not found"
       msg_error "Download completed but backup file not found at $backup_file"
     fi
   else
-    set_status "$ACTION" "error" "Failed to download files backup (scp exit code: $?)"
+    set_status "$action" "error" "Failed to download files backup (scp exit code: $?)"
     msg_error "Failed to download files backup from ${REMOTE_HOST}"
   fi
   

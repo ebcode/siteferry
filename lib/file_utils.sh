@@ -6,6 +6,7 @@
 # Find all numbered shell scripts in actions directory
 get_all_numbered_scripts() {
   # Find all .sh files in actions/, remove .sh extension, exclude finalize_results
+  # SCRIPT_DIR can be overridden for testing; fallback to current script's directory
   local script_dir="${SCRIPT_DIR:-$(dirname "${BASH_SOURCE[0]}")}"
   # If we're in the lib directory, go up one level; otherwise use current directory
   if [[ "$(basename "$script_dir")" == "lib" ]]; then
@@ -20,6 +21,7 @@ get_all_numbered_scripts() {
 
 # Validate that action files follow naming conventions
 validate_numbered_script_files() {
+  # SCRIPT_DIR can be overridden for testing; fallback to current script's directory  
   local actions_dir="${SCRIPT_DIR:-$(dirname "${BASH_SOURCE[0]}")}/actions"
   local invalid_files=()
   

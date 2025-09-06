@@ -6,10 +6,9 @@
 
 set -euo pipefail
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/messaging.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
-ACTION=$(get_current_script_name)
+action=$(get_current_script_name)
 
 main() {
   # Get state from previous pipeline stage
@@ -19,15 +18,15 @@ main() {
   fi
   
   # Check if this action is enabled
-  if ! is_enabled "$ACTION"; then
-    set_status "$ACTION" "skipped" "Disabled in configuration"
+  if ! is_enabled "$action"; then
+    set_status "$action" "skipped" "Disabled in configuration"
     pass_state
     return 0
   fi
   
   # Check dependency - files backup must have been fetched successfully
   if ! dependency_met "fetch_files_backup"; then
-    set_status "$ACTION" "skipped" "Files backup not available (dependency failed)"
+    set_status "$action" "skipped" "Files backup not available (dependency failed)"
     msg_warn "Skipping files import - no backup available"
     pass_state
     return 0
@@ -37,7 +36,7 @@ main() {
   
   # Load site configuration to get the actual backup filename
   if ! load_site_config; then
-    set_status "$ACTION" "error" "Failed to load site configuration"
+    set_status "$action" "error" "Failed to load site configuration"
     pass_state
     return 0
   fi
@@ -50,7 +49,7 @@ main() {
   
   # Check if backup file exists
   if [[ ! -f "$backup_file" ]]; then
-    set_status "$ACTION" "error" "Files backup archive not found: $backup_file"
+    set_status "$action" "error" "Files backup archive not found: $backup_file"
     msg_error "Files backup archive missing"
     pass_state
     return 0
@@ -74,10 +73,10 @@ main() {
     find "$sites_dir" -type d -exec chmod 755 {} \;
     find "$sites_dir" -type f -exec chmod 644 {} \;
     
-    set_status "$ACTION" "success" "Extracted $file_count files to $sites_dir"
+    set_status "$action" "success" "Extracted $file_count files to $sites_dir"
     msg_success "Files import completed successfully ($file_count files)"
   else
-    set_status "$ACTION" "error" "Failed to extract archive (tar exit code: $?)"
+    set_status "$action" "error" "Failed to extract archive (tar exit code: $?)"
     msg_error "Files extraction failed - archive may be corrupted"
   fi
   

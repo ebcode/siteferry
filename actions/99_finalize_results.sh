@@ -6,7 +6,6 @@
 set -euo pipefail
 
 # Source messaging system and common functions
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/messaging.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
 format_duration() {

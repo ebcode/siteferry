@@ -5,10 +5,9 @@
 
 set -euo pipefail
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/messaging.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
-ACTION=$(get_current_script_name)
+action=$(get_current_script_name)
 
 main() {
   # Get state from previous pipeline stage
@@ -18,8 +17,8 @@ main() {
   fi
   
   # Check if this action is enabled
-  if ! is_enabled "$ACTION"; then
-    set_status "$ACTION" "skipped" "Disabled in configuration"
+  if ! is_enabled "$action"; then
+    set_status "$action" "skipped" "Disabled in configuration"
     pass_state
     return 0
   fi
@@ -140,7 +139,8 @@ main() {
       
       if [[ ${#config_errors[@]} -gt 0 ]]; then
         local config_error_msg
-        config_error_msg=$(IFS=', '; echo "${config_errors[*]}")
+        local IFS=', '
+        config_error_msg="${config_errors[*]}"
         errors+=("Site configuration validation failed: $config_error_msg")
       fi
     else
@@ -163,12 +163,13 @@ main() {
   
   # Set status based on results
   if [[ ${#errors[@]} -eq 0 ]]; then
-    set_status "$ACTION" "success" "All preflight checks passed"
+    set_status "$action" "success" "All preflight checks passed"
     msg_success "Preflight checks completed successfully"
   else
     local error_msg
-    error_msg=$(IFS='; '; echo "${errors[*]}")
-    set_status "$ACTION" "error" "$error_msg"
+    local IFS='; '
+    error_msg="${errors[*]}"
+    set_status "$action" "error" "$error_msg"
     msg_error "Preflight checks failed: $error_msg"
     exit 1
   fi

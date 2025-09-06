@@ -5,11 +5,9 @@
 
 set -euo pipefail
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/messaging.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/ddev_utils.sh"
 
-ACTION=$(get_current_script_name)
+action=$(get_current_script_name)
 
 main() {
   # Get state from previous pipeline stage
@@ -19,8 +17,8 @@ main() {
   fi
   
   # Check if this action is enabled
-  if ! is_enabled "$ACTION"; then
-    set_status "$ACTION" "skipped" "Disabled in configuration"
+  if ! is_enabled "$action"; then
+    set_status "$action" "skipped" "Disabled in configuration"
     pass_state
     return 0
   fi
@@ -29,7 +27,7 @@ main() {
   
   # Load site configuration
   if ! load_site_config; then
-    set_status "$ACTION" "error" "Failed to load site configuration"
+    set_status "$action" "error" "Failed to load site configuration"
     pass_state
     return 1
   fi
@@ -48,7 +46,7 @@ main() {
       msg_warn "DDEV configuration will be created but may not start"
     else
       msg_error "$status_msg"
-      set_status "$ACTION" "error" "DDEV environment verification failed: $status_msg"
+      set_status "$action" "error" "DDEV environment verification failed: $status_msg"
       pass_state
       return 1
     fi
@@ -62,7 +60,7 @@ main() {
   if [[ ! -d "$site_local_path" ]]; then
     msg_info "Creating site directory: $site_local_path"
     if ! mkdir -p "$site_local_path"; then
-      set_status "$ACTION" "error" "Failed to create site directory: $site_local_path"
+      set_status "$action" "error" "Failed to create site directory: $site_local_path"
       pass_state
       return 1
     fi
@@ -71,7 +69,7 @@ main() {
   # Change to site directory for DDEV operations
   local original_dir="$PWD"
   if ! cd "$site_local_path"; then
-    set_status "$ACTION" "error" "Failed to change to site directory: $site_local_path"
+    set_status "$action" "error" "Failed to change to site directory: $site_local_path"
     pass_state
     return 1
   fi
@@ -97,7 +95,7 @@ main() {
       else
         msg_error "Failed to backup existing DDEV configuration"
         cd "$original_dir"
-        set_status "$ACTION" "error" "Cannot proceed without backing up existing config"
+        set_status "$action" "error" "Cannot proceed without backing up existing config"
         pass_state
         return 1
       fi
@@ -113,7 +111,7 @@ main() {
         if [[ "$status_type" == "running" ]]; then
           msg_success "DDEV project already running: $status_info"
           cd "$original_dir"
-          set_status "$ACTION" "success" "DDEV project already configured and running: $status_info"
+          set_status "$action" "success" "DDEV project already configured and running: $status_info"
           pass_state
           return 0
         fi
@@ -146,7 +144,7 @@ main() {
   else
     msg_error "$setup_message"
     cd "$original_dir"
-    set_status "$ACTION" "error" "DDEV configuration failed: $setup_message"
+    set_status "$action" "error" "DDEV configuration failed: $setup_message"
     pass_state
     return 1
   fi
@@ -164,7 +162,7 @@ main() {
       msg_info "Project URL: ${start_message#*started at }"
     fi
     cd "$original_dir"
-    set_status "$ACTION" "success" "DDEV project configured and started: $start_message"
+    set_status "$action" "success" "DDEV project configured and started: $start_message"
     pass_state
     return 0
   else
@@ -180,7 +178,7 @@ main() {
     fi
     
     cd "$original_dir"
-    set_status "$ACTION" "partial" "DDEV configured but failed to start (run 'ddev start' manually from $site_local_path)"
+    set_status "$action" "partial" "DDEV configured but failed to start (run 'ddev start' manually from $site_local_path)"
     pass_state
     return 0
   fi
