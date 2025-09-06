@@ -2,7 +2,11 @@
 
 ## Project Overview
 
-**SiteFerry** is a modular, pipeline-based Bash automation system designed to streamline database and file backup operations for DDEV-based development environments. The system provides an interactive interface for selecting backup/restore actions and executes them in a configurable, dependency-aware pipeline with **multi-site architecture support**.
+**SiteFerry** is a modular, pipeline-based Bash automation system 
+designed to streamline database and file backup operations for 
+DDEV-based development environments. The system provides an interactive 
+interface for selecting backup/restore actions and executes them in a 
+configurable, dependency-aware pipeline with a multi-site architecture.
 
 ### Core Architecture
 
@@ -118,7 +122,8 @@ siteferry/
 ## Development Guidelines
 
 ### Unix Philosophy
-Write programs that do one thing and do it well. Write programs to work together. Handle text streams as universal interface.
+Write programs that do one thing and do it well. Write programs to 
+work together. Handle text streams as universal interface.
 
 ### Project Rules
 - **No backwards compatibility required** - brand new project
@@ -127,6 +132,7 @@ Write programs that do one thing and do it well. Write programs to work together
 - **Use `--no-select`** when testing siteferry.sh to avoid dialogs
 - **Succinct commit messages** - one line, semicolon-separated
 - **Fix bats tests** - never use `--no-verify` with git commit
+- **80-column limit** - add newlines before reaching column 80
 
 ### Path Management
 - Configurable via `TEMP_DIR` environment variable
