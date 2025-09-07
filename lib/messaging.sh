@@ -3,11 +3,13 @@
 # Unix-Style Tiered Messaging System
 # Provides verbosity-aware messaging functions with color support
 
-# Color definitions
-readonly GREEN='\033[0;32m'
-readonly ORANGE='\033[0;33m'
-readonly RED='\033[0;31m'
-readonly RESET='\033[0m'
+# Color definitions (with guard to prevent redefinition)
+if [[ -z "${GREEN:-}" ]]; then
+  readonly GREEN='\033[0;32m'
+  readonly ORANGE='\033[0;33m'
+  readonly RED='\033[0;31m'
+  readonly RESET='\033[0m'
+fi
 
 # Default verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug, 4=trace)
 VERBOSITY=${VERBOSITY:-1}

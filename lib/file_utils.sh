@@ -3,20 +3,24 @@
 # File discovery and validation utilities
 # Source this file: source "$(dirname "${BASH_SOURCE[0]}")/file_utils.sh"
 
-# Find all numbered shell scripts in actions directory
+# Find all numbered shell scripts in actions directory (functional approach)
 get_all_numbered_scripts() {
-  # Find all .sh files in actions/, remove .sh extension, exclude finalize_results
-  # SCRIPT_DIR can be overridden for testing; fallback to current script's directory
   local script_dir="${SCRIPT_DIR:-$(dirname "${BASH_SOURCE[0]}")}"
-  # If we're in the lib directory, go up one level; otherwise use current directory
+  local actions_dir
+  
+  # Determine actions directory functionally
   if [[ "$(basename "$script_dir")" == "lib" ]]; then
-    local actions_dir
     actions_dir="$(dirname "$script_dir")/actions"
   else
-    local actions_dir="$script_dir/actions"
+    actions_dir="$script_dir/actions"
   fi
+  
+  # Functional pipeline for file discovery and processing
+  # shellcheck disable=SC2012,SC2016
   find "$actions_dir" -name "[0-9]*_*.sh" -not -name "*finalize_results.sh" 2>/dev/null | \
-    sed 's|.*/||; s|\.sh$||' | sort
+    map '( basename "$1" )' | \
+    map '( echo "${1%.sh}" )' | \
+    sort
 }
 
 # Validate that action files follow naming conventions

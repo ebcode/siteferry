@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# shellcheck disable=SC2016
 # DDEV Backup Manager - Pipeline Orchestrator
 # Builds and executes dynamic pipelines based on user configuration
 
@@ -49,58 +49,72 @@ ensure_internal_config_exists() {
   fi
 }
 
+# Functional approach to getting enabled actions
 get_enabled_actions() {
-  # Ensure config file exists before parsing
   ensure_internal_config_exists
   
-  # Parse config and extract enabled actions
+  # Parse config directly (not using safe_execute for command strings)
   local config_output
-  if config_output=$(bash "$SCRIPT_DIR/lib/parse_config.sh" "$CONFIG_FILE"); then
-    # Extract action names from export statements where value is "true"
-    echo "$config_output" | grep '_enabled="true"' | sed 's/export \(.*\)_enabled="true"/\1/'
+  if config_output=$(bash "$SCRIPT_DIR/lib/parse_config.sh" "$CONFIG_FILE" 2>&1); then
+    # Functional pipeline to extract enabled actions
+    echo "$config_output" | \
+      filter '( [[ "$1" =~ _enabled=\"true\" ]] )' | \
+      map '( sed "s/export \\(.*\\)_enabled=\"true\"/\\1/" <<< "$1" )'
   else
-    msg_error "Failed to parse configuration"
-    exit 1
+    msg_error "Failed to parse configuration: $config_output"
+    return 1
   fi
 }
 
 # Common functions already sourced above
 
-# Map base action names to numbered filenames
+# Functional mapping of base action names to numbered filenames
 map_action_to_filename() {
   local base_name="$1"
-  local actions
-  mapfile -t actions < <(get_all_numbered_scripts)
-  for action in "${actions[@]}"; do
-    if [[ "$(strip_numeric_prefix "$action")" == "$base_name" ]]; then
-      echo "$action"
-      return 0
-    fi
-  done
-  echo "$base_name"  # fallback to original name
+  
+  # Use functional operations to find matching action
+  local matched_action
+  matched_action="$(get_all_numbered_scripts | \
+    filter "( [[ \"\$(strip_numeric_prefix \"\$1\")\" == \"$base_name\" ]] )" | \
+    head -1)"
+  
+  # Return matched action or fallback to original name
+  echo "${matched_action:-$base_name}"
 }
 
+# Pure function to build action script path
+build_action_script_path() {
+  local base_action="$1"
+  local action_filename
+  action_filename="$(map_action_to_filename "$base_action")"
+  echo "$SCRIPT_DIR/actions/${action_filename}.sh"
+}
+
+# Pure function to validate action script exists
+validate_action_script() {
+  local script_path="$1"
+  [[ -f "$script_path" ]]
+}
+
+# Functional pipeline construction
 build_pipeline() {
   local enabled_actions=("$@")
   local pipeline_cmd="bash '$SCRIPT_DIR/lib/parse_config.sh' '$CONFIG_FILE'"
   
-  # Add each enabled action to the pipeline
-  for base_action in "${enabled_actions[@]}"; do
-    local action_filename
-    action_filename=$(map_action_to_filename "$base_action")
-    local action_script="$SCRIPT_DIR/actions/${action_filename}.sh"
-    
-    if [[ ! -f "$action_script" ]]; then
-      msg_warn "Action script not found: $action_script"
-      continue
-    fi
-    
-    pipeline_cmd="$pipeline_cmd | bash '$action_script'"
+  # Transform actions to script paths and validate them functionally
+  local -a valid_scripts
+  mapfile -t valid_scripts < <(printf '%s\n' "${enabled_actions[@]}" | \
+    map build_action_script_path | \
+    filter validate_action_script)
+  
+  # Build pipeline command using simple loop (more reliable than reduce with complex quoting)
+  for script in "${valid_scripts[@]}"; do
+    pipeline_cmd="$pipeline_cmd | bash '$script'"
   done
   
-  # Always add finalize_results at the end (find the numbered version)
+  # Add finalize script
   local finalize_script
-  finalize_script=$(find "$SCRIPT_DIR/actions" -name "*finalize_results.sh" | head -1)
+  finalize_script="$(find "$SCRIPT_DIR/actions" -name "*finalize_results.sh" | head -1)"
   if [[ -f "$finalize_script" ]]; then
     pipeline_cmd="$pipeline_cmd | bash '$finalize_script'"
   else
@@ -123,71 +137,121 @@ show_action_selection() {
   fi
 }
 
-parse_site_selection() {
-  local args=("$@")
-  local i=0
+# Pure function to extract site name from arguments
+extract_site_option() {
+  local -a args=("$@")
+  local i
   
-  while [[ $i -lt ${#args[@]} ]]; do
-    case "${args[i]}" in
-      --site)
-        if [[ $((i + 1)) -lt ${#args[@]} ]]; then
-          SITE_NAME="${args[$((i + 1))]}"
-          # Validate site name
-          if ! validate_site_name "$SITE_NAME"; then
-            msg_error "Site '$SITE_NAME' not found. Available sites:"
-            get_available_sites
-            exit 1
-          fi
-          # Update config file path for selected site
-          CONFIG_FILE="internal-config/last-checked-${SITE_NAME}.config"
-          SITE_CONFIG_FILE="$(get_site_config_path "$SITE_NAME")"
-          export SITE_CONFIG_FILE
-          i=$((i + 2))
-        else
-          msg_error "--site requires a site name"
-          exit 1
-        fi
-        ;;
-      --list-sites)
-        echo "Available sites:"
-        get_available_sites
-        exit 0
-        ;;
-      *)
-        i=$((i + 1))
-        ;;
-    esac
+  for ((i=0; i<${#args[@]}; i++)); do
+    if [[ "${args[i]}" == "--site" ]] && [[ $((i + 1)) -lt ${#args[@]} ]]; then
+      echo "${args[$((i + 1))]}"
+      return 0
+    fi
   done
+  return 1
 }
 
-main() {
-  # Parse verbosity from command line first
-  parse_verbosity "$@"
+# Pure function to validate and setup site configuration
+setup_site_config() {
+  local site_name="$1"
   
-  # Parse site selection and handle special commands
-  parse_site_selection "$@"
+  if validate_site_name "$site_name"; then
+    local config_file="internal-config/last-checked-${site_name}.config"
+    local site_config_file
+    site_config_file="$(get_site_config_path "$site_name")"
+    
+    # Return configuration as data
+    printf "SITE_NAME=%s\n" "$site_name"
+    printf "CONFIG_FILE=%s\n" "$config_file"
+    printf "SITE_CONFIG_FILE=%s\n" "$site_config_file"
+  else
+    return 1
+  fi
+}
+
+# Functional argument processing
+parse_site_selection() {
+  local -a args=("$@")
+  
+  # Handle list-sites command functionally
+  printf '%s\n' "${args[@]}" | \
+    some '( [[ "$1" == "--list-sites" ]] )' && {
+    echo "Available sites:"
+    get_available_sites
+    exit 0
+  }
+  
+  # Extract and validate site option functionally
+  local site_result
+  if site_result="$(extract_site_option "${args[@]}")"; then
+    local config_result
+    if config_result="$(setup_site_config "$site_result")"; then
+      # Apply configuration
+      eval "$config_result"
+      export SITE_CONFIG_FILE
+    else
+      msg_error "Site '$site_result' not found. Available sites:"
+      get_available_sites
+      exit 1
+    fi
+  fi
+}
+
+# Pure functions for main orchestration
+should_show_action_selection() {
+  local args=("$@")
+  ! printf '%s\n' "${args[@]}" | some '( [[ "$1" == "--no-select" ]] )'
+}
+
+should_run_dry() {
+  local args=("$@")
+  printf '%s\n' "${args[@]}" | some '( [[ "$1" == "--dry-run" ]] )'
+}
+
+display_banner() {
+  local site_name="$1"
+  msg_user_info "SiteFerry - Multi-Site Backup Manager"
+  msg_user_info "====================================="
+  msg_user_info "Site: $site_name"
+  msg_user_info ""
+}
+
+validate_enabled_actions() {
+  local -a enabled_actions=("$@")
+  [[ ${#enabled_actions[@]} -gt 0 ]]
+}
+
+# Functional main orchestrator
+main() {
+  local -a args=("$@")
+  
+  # Parse arguments functionally
+  parse_verbosity "${args[@]}"
+  parse_site_selection "${args[@]}"
   
   # Ensure SITE_CONFIG_FILE is set for all site operations
   export SITE_CONFIG_FILE="${SITE_CONFIG_FILE:-$(get_site_config_path "$SITE_NAME")}"
   
-  msg_user_info "SiteFerry - Multi-Site Backup Manager"
-  msg_user_info "====================================="
-  msg_user_info "Site: $SITE_NAME"
-  msg_user_info ""
+  # Display banner
+  display_banner "$SITE_NAME"
   
-  # Show action selection unless --no-select is specified
-  if [[ "$*" != *"--no-select"* ]]; then
+  # Show action selection conditionally using functional predicate
+  if should_show_action_selection "${args[@]}"; then
     msg_info "Opening action selection..."
     show_action_selection
     msg_user_info ""
   fi
   
-  # Get enabled actions from config
+  # Get enabled actions functionally with error handling
   msg_info "Loading configuration..."
-  local enabled_actions
-  mapfile -t enabled_actions < <(get_enabled_actions)
+  local -a enabled_actions
+  if ! mapfile -t enabled_actions < <(get_enabled_actions); then
+    msg_user_error "Failed to load enabled actions"
+    exit 1
+  fi
   
-  if [[ ${#enabled_actions[@]} -eq 0 ]]; then
+  # Validate actions using functional approach
+  if ! validate_enabled_actions "${enabled_actions[@]}"; then
     msg_user_error "No actions enabled in configuration. Run with --select to choose actions."
     exit 1
   fi
@@ -195,22 +259,29 @@ main() {
   msg_info "Enabled actions: ${enabled_actions[*]}"
   msg_user_info ""
   
-  # Build and execute pipeline
+  # Build pipeline functionally with error handling
   msg_debug "Building pipeline..."
   local pipeline_cmd
-  pipeline_cmd=$(build_pipeline "${enabled_actions[@]}")
+  if ! pipeline_cmd="$(build_pipeline "${enabled_actions[@]}")"; then
+    msg_user_error "Failed to build pipeline"
+    exit 1
+  fi
   
-  if [[ "$*" == *"--dry-run"* ]]; then
+  # Handle dry run using functional predicate
+  if should_run_dry "${args[@]}"; then
     msg_user_info "Dry run - pipeline would execute:"
     msg_user_info "$pipeline_cmd"
     exit 0
   fi
   
+  # Execute pipeline with error handling
   msg_info "Executing pipeline..."
   msg_user_info ""
   
-  # Execute the pipeline using eval
-  eval "$pipeline_cmd"
+  if ! eval "$pipeline_cmd"; then
+    msg_user_error "Pipeline execution failed"
+    exit 1
+  fi
 }
 
 # Show help if requested (handle before parse_site_selection to avoid conflicts)
